@@ -8,6 +8,7 @@
 
 import { createRng, seedFrom } from '../public/src/engine/rng.js';
 import { GAMES } from '../public/src/schedule.js';
+import { createSfx } from '../public/src/engine/sound.js';
 
 const W = 360;
 const H = 640;
@@ -51,7 +52,7 @@ const bots = {
 };
 
 function play(game, seed, bot) {
-  const inst = game.create({ rng: createRng(seed), W, H, duration: DURATION });
+  const inst = game.create({ rng: createRng(seed), W, H, duration: DURATION, sfx: createSfx() }); // silent in Node
   const botRng = createRng(seed ^ 0x9e3779b9);
   const g = fakeCanvas().getContext('2d');
   let t = 0;

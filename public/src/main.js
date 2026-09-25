@@ -12,6 +12,7 @@ import { playIntro, startAmbient } from './engine/intro.js';
 import { submitScore, fetchStats } from './engine/api.js';
 import { renderResults, shareText } from './engine/results.js';
 import { GAMES, gameIdFor, loadGame } from './schedule.js';
+import { unlockAudio, isMuted, setMuted } from './engine/sound.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -97,6 +98,7 @@ async function showResults(result, stats) {
 // ---------- play ----------
 
 async function play() {
+  unlockAudio(); // must happen inside the tap
   ambient(false);
   show('intro');
   $('intro-label').textContent = `Ephemeral #${DAY_NUM} · today ${game.emoji}`;
@@ -169,6 +171,27 @@ function buildLogo() {
   );
 }
 
+function setupMute() {
+  const btn = $('mute-btn');
+  const render = () => {
+    btn.classList.toggle('muted', isMuted());
+    btn.setAttribute('aria-label', isMuted() ? 'Unmute sound' : 'Mute sound');
+  };
+  const toggle = () => {
+    setMuted(!isMuted());
+    render();
+  };
+  btn.addEventListener('click', (e) => {
+    toggle();
+    btn.blur();
+    e.stopPropagation();
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyM') toggle();
+  });
+  render();
+}
+
 function tickCountdowns() {
   if (!DEV && dateKey() !== DAY) return location.reload();
   const text = formatCountdown(msUntilTomorrow());
@@ -202,6 +225,7 @@ async function boot() {
   game = await loadGame(gameId);
   finalizeInterruptedRun();
   await setupDev();
+  setupMute();
 
   $('play-btn').addEventListener('click', play);
   $('home-btn').addEventListener('click', showHome);

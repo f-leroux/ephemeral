@@ -41,7 +41,8 @@ public/src/engine/        the parts that never change
   intro.js                8s "recombination" intro + home ambient
   input.js                hold left/right half of screen, or ← → / A D
   rng.js                  seeded RNG (seed = date + game id)
-  kit.js                  helpers for game modules (collisions, mover, particles…)
+  kit.js                  helpers for game modules (collisions, mover, particles, sprites…)
+  sound.js                procedural sound effects + mute; engine sounds (countdown, ticks, fanfare)
   results.js, api.js      results screen, histogram, share text
 public/src/games/         one file per daily game
 scripts/check-game.mjs    headless sanity checks for game modules
@@ -58,7 +59,7 @@ scripts/check-game.mjs    headless sanity checks for game modules
      emoji: '🧊',
      tagline: 'One or two sentences. This is the only explanation players get.',
      colors: { bg, fg, accent }, // fg is used for the timer, so it must contrast with bg
-     create({ rng, W, H, duration }) {
+     create({ rng, W, H, duration, sfx }) { // sfx: procedural sounds, see engine/sound.js
        return {
          dead: false,
          deathReason: '',       // shown on the results screen, e.g. 'Melted into a puddle.'

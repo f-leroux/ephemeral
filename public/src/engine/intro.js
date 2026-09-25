@@ -4,6 +4,7 @@
 
 import { fitCanvas, DISPLAY_FONT } from './stage.js';
 import { clamp, lerp } from './kit.js';
+import { engineSfx } from './sound.js';
 
 const INTRO_BG = [7, 7, 12];
 const CHAOS_COLORS = ['#ff6b8b', '#7ee0ff', '#ffd36b', '#9d7bff', '#6bffb8', '#ff9f5a', '#f3f0ea'];
@@ -78,10 +79,18 @@ export function playIntro({ canvas, game, labelEl, taglineEl }) {
     labelEl.classList.remove('show');
     taglineEl.classList.remove('show');
     const start = performance.now();
+    const sounds = engineSfx();
+    let chimed = false;
     let raf = 0;
+    sounds?.kit.play(sounds.whoosh);
 
     function frame(now) {
       const T = (now - start) / 1000;
+      // a soft chord as the title snaps together
+      if (!chimed && T > 2.1 && sounds) {
+        chimed = true;
+        [1, 1.25, 1.5, 2].forEach((p, i) => sounds.kit.play(sounds.shimmer, { pitch: p, delay: i * 0.07, volume: 0.7 }));
+      }
       const { g, cw: w, ch: h, dpr } = fitCanvas(canvas);
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
 

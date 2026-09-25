@@ -4,7 +4,7 @@
 //   {
 //     id, title, emoji, tagline,           // tagline: one or two sentences shown before playing
 //     colors: { bg, fg, accent },
-//     create({ rng, W, H, duration }) => instance
+//     create({ rng, W, H, duration, sfx }) => instance   // sfx: see sound.js
 //   }
 // and an instance:
 //   {
@@ -20,6 +20,7 @@ import { createRng } from './rng.js';
 import { createInput } from './input.js';
 import { fitCanvas, DISPLAY_FONT, BODY_FONT } from './stage.js';
 import { createParticles, wrapText, easeOutCubic } from './kit.js';
+import { createSfx, engineSfx, playFanfare, suspendAudio } from './sound.js';
 
 export const W = 360;
 export const H = 640;
@@ -37,7 +38,9 @@ function fitFont(g, text, weight, size, family, maxWidth) {
 export function runGame({ canvas, game, seed, onProgress }) {
   return new Promise((resolve) => {
     const rng = createRng(seed);
-    const inst = game.create({ rng, W, H, duration: DURATION });
+    const sfx = createSfx();
+    const beeps = engineSfx();
+    const inst = game.create({ rng, W, H, duration: DURATION, sfx });
     const input = createInput(window);
     const confetti = createParticles();
     const touch = window.matchMedia('(pointer: coarse)').matches;
@@ -49,13 +52,17 @@ export function runGame({ canvas, game, seed, onProgress }) {
     let acc = 0;
     let endTimer = 0;
     let lastSaved = -1;
+    let lastBeep = 0;
+    let lastTick = 49;
     let last = performance.now();
     let raf = 0;
 
     const onVisibility = () => {
+      suspendAudio(document.hidden);
       if (document.hidden && phase === 'play') {
         phase = 'countdown';
         countdown = COUNTDOWN;
+        lastBeep = 0;
         resumeLabel = 'Paused — get ready';
       }
     };
@@ -64,6 +71,7 @@ export function runGame({ canvas, game, seed, onProgress }) {
     function finish() {
       cancelAnimationFrame(raf);
       input.dispose();
+      sfx.stopLoops();
       document.removeEventListener('visibilitychange', onVisibility);
       const survived = phase === 'survived';
       resolve({
@@ -78,10 +86,14 @@ export function runGame({ canvas, game, seed, onProgress }) {
       last = now;
 
       if (phase === 'countdown') {
+        const n = Math.ceil(countdown);
+        if (n !== lastBeep && beeps) beeps.kit.play(beeps.beep);
+        lastBeep = n;
         countdown -= dt;
         if (countdown <= 0) {
           phase = 'play';
           acc = 0;
+          if (beeps) beeps.kit.play(beeps.go);
         }
       } else if (phase === 'play') {
         acc += dt;
@@ -92,11 +104,15 @@ export function runGame({ canvas, game, seed, onProgress }) {
           t += STEP;
           if (inst.dead) {
             phase = 'dying';
+            sfx.stopLoops(0.25);
+            if (beeps) beeps.kit.play(beeps.thud);
             break;
           }
           if (t >= DURATION) {
             t = DURATION;
             phase = 'survived';
+            sfx.stopLoops(0.4);
+            playFanfare();
             confetti.burst(W / 2, H * 0.42, {
               count: 140,
               speed: 420,
@@ -107,6 +123,11 @@ export function runGame({ canvas, game, seed, onProgress }) {
             });
             break;
           }
+        }
+        // the last ten seconds tick, rising in pitch
+        if (phase === 'play' && Math.floor(t) > lastTick) {
+          lastTick = Math.floor(t);
+          if (beeps) beeps.kit.play(beeps.tick, { pitch: 1 + (lastTick - 50) * 0.06 });
         }
         if (onProgress && t - lastSaved >= 0.25) {
           lastSaved = t;

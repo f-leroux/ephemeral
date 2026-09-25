@@ -163,7 +163,7 @@ export default {
   tagline: 'Each gate asks a question. Drive through the right answer — and dodge the roadblocks in between.',
   colors: { bg: '#140e26', fg: '#f6f1ff', accent: '#ff6bd6' },
 
-  create({ rng, W, H }) {
+  create({ rng, W, H, sfx }) {
     const carArt = paintCar();
     const bg = paintBackground(W, H);
     const pinkGlow = glowSprite('rgba(255,90,200,1)', 40);
@@ -184,6 +184,14 @@ export default {
     const gates = [];
     const blocks = [];
     const popups = [];
+    const snd = {
+      purr: sfx.loop({ wave: 'triangle', freq: 72, lowpass: 380, volume: 0.28 }),
+      appear: sfx.sound({ wave: 'sine', freq: 660, freqEnd: 990, sustain: 0.05, release: 0.15, volume: 0.35 }),
+      ding: sfx.sound({ wave: 'triangle', freq: 1046.5, sustain: 0.06, release: 0.35, volume: 0.5 }),
+      buzz: sfx.sound({ wave: 'square', freq: 190, freqEnd: 120, sustain: 0.3, release: 0.15, volume: 0.35, lowpass: 1400 }),
+      crash: sfx.sound({ wave: 'noise', freq: 1400, freqEnd: 90, sustain: 0.1, release: 0.6, volume: 0.8 }),
+      hurry: sfx.sound({ wave: 'square', freq: 1500, sustain: 0.03, release: 0.04, volume: 0.18, lowpass: 4000 }),
+    };
     let scroll = 92;
     let dist = 0;
     let gateIn = 0.4;
@@ -203,7 +211,8 @@ export default {
       const n = t < 12 ? 2 : t < 30 ? 3 : 4;
       const [question, correct, ...wrong] = nextQuestion(t);
       const answers = rng.shuffle([correct, ...rng.shuffle(wrong).slice(0, n - 1)]);
-      gates.push({ y: GATE_Y, n, question, answers, correct: answers.indexOf(correct), crossed: false, alpha: 0, age: 0 });
+      gates.push({ y: GATE_Y, n, question, answers, correct: answers.indexOf(correct), crossed: false, alpha: 0, age: 0, hurried: false });
+      sfx.play(snd.appear);
       // roadblocks appear between the new gate and the car: dodge, then pick your lane
       if (t > 14) spawnBlock(rng.range(310, 350), t);
       if (t > 40) spawnBlock(rng.range(410, 440), t);
@@ -214,7 +223,9 @@ export default {
       blocks.push({ x: rng.range(0, W - w), y, w, h: 22, alpha: 0 });
     }
 
-    function crash(reason) {
+    function crash(reason, sound) {
+      sfx.play(sound);
+      if (sound !== snd.crash) sfx.play(snd.crash, { volume: 0.5 });
       game.dead = true;
       game.deathReason = reason;
       fx.burst(car.x, PLAYER_Y, { count: 60, speed: 280, life: 1, size: 4, round: true, drag: 1.5, colors: ['#ff4f6d', '#ffffff', '#ffb36b', '#ff6bd6'] });
@@ -236,10 +247,16 @@ export default {
         }
 
         car.update(dt, dir);
+        snd.purr.set({ pitch: 0.8 + (scroll / 172) * 0.5 + Math.abs(car.lean) * 0.15 });
 
         for (const gt of gates) {
           gt.y += scroll * dt;
           gt.age += dt;
+          if (!gt.crossed && !gt.hurried && (PLAYER_Y - gt.y) / (PLAYER_Y - GATE_Y) < 0.3) {
+            gt.hurried = true;
+            sfx.play(snd.hurry);
+            sfx.play(snd.hurry, { delay: 0.12 });
+          }
           if (!gt.crossed && gt.y >= PLAYER_Y) {
             gt.crossed = true;
             gateIn = 0.25;
@@ -248,10 +265,12 @@ export default {
             flash = { lane, n: gt.n, ok, t: 0.5 };
             if (ok) {
               answered++;
+              sfx.play(snd.ding);
+              sfx.play(snd.ding, { pitch: 1.5, delay: 0.08 });
               popups.push({ x: car.x, y: PLAYER_Y - 40, life: 0.9, text: '✓' });
               fx.burst(car.x, PLAYER_Y - 20, { count: 34, speed: 240, life: 0.7, size: 4, round: true, drag: 2, colors: ['#6bffb8', '#ffffff', '#7ee0ff'] });
             } else {
-              crash(`Wrong answer — “${gt.question}” It was ${gt.answers[gt.correct]}.`);
+              crash(`Wrong answer — “${gt.question}” It was ${gt.answers[gt.correct]}.`, snd.buzz);
             }
           }
           if (gt.crossed) gt.alpha -= dt * 2.5;
@@ -265,7 +284,7 @@ export default {
           b.alpha = Math.min(1, b.alpha + dt * 4);
           if (b.y > H) blocks.splice(i, 1);
           else if (!this.dead && circleRect(car.x, PLAYER_Y, 11, b.x, b.y, b.w, b.h)) {
-            crash(`Crashed into a roadblock after ${answered} correct answer${answered === 1 ? '' : 's'}.`);
+            crash(`Crashed into a roadblock after ${answered} correct answer${answered === 1 ? '' : 's'}.`, snd.crash);
           }
         }
 

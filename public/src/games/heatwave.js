@@ -200,7 +200,7 @@ export default {
   tagline: 'You’re an ice cube on a scorching street. Sunlight melts you — stay in the shade to refreeze. Avoid the hot grates.',
   colors: { bg: '#f0c77a', fg: '#3b2412', accent: '#ff7a3d' },
 
-  create({ rng, W, H }) {
+  create({ rng, W, H, sfx }) {
     const art = rng.fork('art');
     const pavement = paintPavement(art);
     const canopies = Array.from({ length: 4 }, () => paintCanopy(art));
@@ -220,6 +220,16 @@ export default {
     const puddles = createParticles();
     const shades = [];
     const grates = [];
+    const snd = {
+      cicadas: sfx.loop({ wave: 'noise', freq: 4800, vibrato: 0.35, vibratoRate: 32, lowpass: 6000, volume: 0.07 }),
+      sizzle: sfx.loop({ wave: 'noise', freq: 9000, lowpass: 7000, volume: 0.2 }),
+      tink: sfx.sound({ wave: 'sine', freq: 2400, attack: 0.002, sustain: 0.02, release: 0.35, volume: 0.3 }),
+      drip: sfx.sound({ wave: 'sine', freq: 1100, freqEnd: 420, attack: 0.002, sustain: 0.02, release: 0.08, volume: 0.35 }),
+      fry: sfx.sound({ wave: 'noise', freq: 8000, freqEnd: 2500, sustain: 0.35, release: 0.7, volume: 0.7 }),
+      bloop: sfx.sound({ wave: 'sine', freq: 700, freqEnd: 90, sustain: 0.3, release: 0.5, volume: 0.6, vibrato: 0.06, vibratoRate: 9 }),
+    };
+    let wasShade = true;
+    let dripIn = 0;
     let ice = 1; // 1 = solid, 0 = puddle
     let inShade = true;
     let scroll = 150;
@@ -334,6 +344,14 @@ export default {
         }
 
         inShade = shadeAt(cube.x, PLAYER_Y);
+        if (inShade && !wasShade) sfx.play(snd.tink, { pitch: 0.9 + ice * 0.4 });
+        wasShade = inShade;
+        snd.sizzle.set({ volume: inShade ? 0 : 0.5 + heat * 0.5, pitch: 0.8 + heat * 0.4 });
+        dripIn -= dt;
+        if (!inShade && ice < 0.4 && dripIn <= 0) {
+          dripIn = 0.18 + ice * 0.8; // faster drips as you shrink
+          sfx.play(snd.drip, { pitch: 0.9 + (1 - ice) * 0.5 });
+        }
         const melt = lerp(0.42, 1.05, p);
         ice = clamp(ice + (inShade ? 0.38 : -melt) * dt, 0, 1);
         const size = lerp(8, 26, ice);
@@ -352,12 +370,14 @@ export default {
           gr.y += move;
           if (gr.y - gr.r > H) grates.splice(i, 1);
           else if (circleCircle(cube.x, PLAYER_Y, size * 0.45, gr.x, gr.y, gr.r * 0.8)) {
+            if (!this.dead) sfx.play(snd.fry);
             this.dead = true;
             this.deathReason = 'Sizzled on a hot grate.';
           }
         }
 
         if (ice <= 0) {
+          if (!this.dead) sfx.play(snd.bloop);
           this.dead = true;
           this.deathReason = 'Melted into a puddle.';
         }

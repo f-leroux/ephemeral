@@ -18,6 +18,7 @@ export function createInput(target = window) {
   };
   const onKeyUp = (e) => keys.delete(e.code);
   const onPointerDown = (e) => {
+    if (e.target.closest?.('button')) return; // e.g. the mute button
     pointers.set(e.pointerId, sideOf(e));
     e.preventDefault();
   };

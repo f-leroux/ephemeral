@@ -228,7 +228,7 @@ export default {
   tagline: 'Steer your ship through the debris field. One touch and it’s over. Watch for red warnings: comets.',
   colors: { bg: '#05060f', fg: '#eef1ff', accent: '#7ee0ff' },
 
-  create({ rng, W, H, duration }) {
+  create({ rng, W, H, duration, sfx }) {
     const art = rng.fork('art');
     const nebula = paintNebula(W, H, art);
     const planet = paintPlanet();
@@ -248,6 +248,15 @@ export default {
     const rocks = [];
     const comets = [];
     const rings = [];
+    const snd = {
+      hum: sfx.loop({ wave: 'saw', freq: 55, lowpass: 240, volume: 0.22 }),
+      whoosh: sfx.sound({ wave: 'noise', freq: 2500, freqEnd: 700, attack: 0.03, sustain: 0.04, release: 0.2, volume: 0.35, lowpass: 3000 }),
+      siren: sfx.sound({ wave: 'square', freq: 880, freqEnd: 640, sustain: 0.1, release: 0.06, volume: 0.22, lowpass: 3200 }),
+      streak: sfx.sound({ wave: 'noise', freq: 5000, freqEnd: 400, sustain: 0.08, release: 0.4, volume: 0.55 }),
+      rumble: sfx.sound({ wave: 'sine', freq: 70, freqEnd: 45, attack: 0.05, sustain: 0.3, release: 0.4, volume: 0.6, noise: 0.25 }),
+      boom: sfx.sound({ wave: 'noise', freq: 900, freqEnd: 50, sustain: 0.15, release: 0.9, volume: 0.9 }),
+    };
+    const panOf = (x) => (x / W) * 2 - 1;
     let spawnIn = 1.2;
     let cometIn = 20;
     let wallIn = 34;
@@ -283,7 +292,10 @@ export default {
         cometIn -= dt;
         if (t > 18 && cometIn <= 0) {
           cometIn = lerp(4.5, 1.4, p) * rng.range(0.8, 1.2);
-          comets.push({ x: rng.range(20, W - 20), warn: 0.75, y: -60 });
+          const x = rng.range(20, W - 20);
+          comets.push({ x, warn: 0.75, y: -60 });
+          sfx.play(snd.siren, { pan: panOf(x) });
+          sfx.play(snd.siren, { pan: panOf(x), delay: 0.28 });
         }
 
         // walls of rocks with a single gap
@@ -295,10 +307,12 @@ export default {
           for (let x = 14; x < W; x += 30) {
             if (Math.abs(x - gapX) > gap / 2 + 14) spawnRock(x, 15);
           }
+          sfx.play(snd.rumble);
           spawnIn = Math.max(spawnIn, 0.5);
         }
 
         mover.update(dt, dir);
+        snd.hum.set({ pitch: scroll / 210, volume: 0.7 + 0.3 * Math.abs(mover.lean) });
 
         for (let i = rocks.length - 1; i >= 0; i--) {
           const r = rocks[i];
@@ -306,14 +320,22 @@ export default {
           r.x += r.vx * dt;
           if (r.x < r.r || r.x > W - r.r) r.vx = -r.vx;
           r.rot += r.vr * dt;
+          // near miss
+          if (!r.passed && r.y > PLAYER_Y) {
+            r.passed = true;
+            const gap = Math.abs(r.x - mover.x) - r.r;
+            if (gap < 34) sfx.play(snd.whoosh, { pan: panOf(r.x), volume: 1 - gap / 40, pitch: 0.8 + r.r / 60 });
+          }
           if (r.y - r.r > H) rocks.splice(i, 1);
           else if (circleCircle(mover.x, PLAYER_Y, PLAYER_R, r.x, r.y, r.r * 0.86)) this.die('Hit by an asteroid.');
         }
 
         for (let i = comets.length - 1; i >= 0; i--) {
           const c = comets[i];
-          if (c.warn > 0) c.warn -= dt;
-          else {
+          if (c.warn > 0) {
+            c.warn -= dt;
+            if (c.warn <= 0) sfx.play(snd.streak, { pan: panOf(c.x) });
+          } else {
             c.y += 1500 * dt;
             fx.burst(c.x, c.y - 8, { count: 2, speed: 90, life: 0.5, size: 3, round: true, colors: ['#ffd9a0', '#ff9a5a', '#ffffff'], angle: -Math.PI / 2, spread: 1.2 });
           }
@@ -340,6 +362,7 @@ export default {
         if (this.dead) return;
         this.dead = true;
         this.deathReason = reason;
+        sfx.play(snd.boom, { pan: panOf(mover.x) * 0.5 });
         const at = [mover.x, PLAYER_Y];
         fx.burst(...at, { count: 70, speed: 300, life: 1.1, size: 4, round: true, drag: 1.5, colors: ['#ffffff', '#ffe08a', '#ff9a4a', '#ff5a3a'] });
         fx.burst(...at, { count: 22, speed: 180, life: 1.6, size: 5, drag: 0.8, colors: ['#8b93c7', '#c9d0ff', '#4b5390'] });
