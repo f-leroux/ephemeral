@@ -1,6 +1,6 @@
 // Calendar helpers. A "day" is the player's local calendar date, like Wordle.
 
-export const LAUNCH_DATE = '2026-09-24';
+export const LAUNCH_DATE = '2026-09-25';
 
 export function dateKey(d = new Date()) {
   const y = d.getFullYear();

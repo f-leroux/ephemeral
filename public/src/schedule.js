@@ -4,9 +4,9 @@
 export const GAMES = ['asteroids', 'quiz', 'heatwave'];
 
 export const SCHEDULE = {
-  '2026-09-24': 'asteroids',
-  '2026-09-25': 'quiz',
-  '2026-09-26': 'heatwave',
+  '2026-09-25': 'asteroids',
+  '2026-09-26': 'quiz',
+  '2026-09-27': 'heatwave',
 };
 
 export function gameIdFor(day, dayNum) {

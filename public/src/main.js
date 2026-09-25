@@ -32,7 +32,9 @@ let lastResult = null;
 function loadState() {
   if (DEV) return null;
   try {
-    return JSON.parse(localStorage.getItem(STORE_KEY));
+    const state = JSON.parse(localStorage.getItem(STORE_KEY));
+    // A run saved for a different game (the schedule changed) doesn't count.
+    return state?.gameId === gameId ? state : null;
   } catch {
     return null;
   }
