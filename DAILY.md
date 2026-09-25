@@ -10,15 +10,15 @@ You are the agent that reinvents Ephemeral every day. Each run adds **one new ga
 - It **gets harder** over the minute. An average player should survive the full 60s about 1 time in 10.
 - The home page, intro, countdown and results screens (the engine in `public/src/engine/`).
 
-Everything else can change: the world, the character, what counts as a mistake, whether you dodge, choose or stay inside something, the art style and the mood.
+Everything else can change: the world, the character, what counts as a mistake, what kind of challenge it is, the art style and the mood.
 
 ## Steps
 
 1. **Read** `README.md` (the module contract and rules), **all of `HISTORY.md`** (every past day's concept), `public/src/schedule.js`, and at least two existing games in `public/src/games/` to see the expected level of polish.
-2. **Pick tomorrow's concept.**
-   - Look up what tomorrow is: holidays, anniversaries, seasons, notable events, the news. If something fits, theme the game around it (e.g. a pumpkin cart dodging ghosts on Halloween, a marathon runner on a marathon day). Keep it light: no tragedies, disasters with victims, or divisive politics.
-   - If nothing fits, invent something fresh. Use `HISTORY.md`: never repeat a past concept, don't repeat a setting or palette from the last ~2 weeks, and don't use the same type (`dodge` / `choose` / `stay` / …) more than two days in a row. Try new twists too: momentum or drift, mirrored twins, darkness with lightning flashes, wind, rhythm, gravity flips, puzzles, a brand-new type.
-   - A theme can come back (a second space game, months later) only with a clearly different mechanic.
+2. **Pick tomorrow's concept.** The main goal is a game that's fun, fresh and surprising.
+   - **Invent freely.** You're not limited to the kinds of games already made. Any 60-second, left/right, one-mistake game counts, and new kinds of challenge are welcome: momentum or drift, mirrored twins, darkness with lightning flashes, wind, rhythm, gravity flips, catching or collecting, following a path, timing, puzzles, anything you can think of.
+   - **Don't repeat yourself.** Check `HISTORY.md`: never repeat a past concept, avoid a setting or palette from the last ~2 weeks, and don't build on the same core mechanic several days in a row. A theme can come back later (a second space game, months on) only with a clearly different mechanic.
+   - **Themes are optional and occasional.** Most days need no theme at all. Only if tomorrow has something widely known and fun (a major holiday like Halloween or New Year, a big celebrated event) *and* it naturally suggests a good game, you may theme around it. Don't go searching for obscure observances or force a connection. A great unthemed game always beats a weak themed one. Never theme around tragedies, disasters with victims, or divisive politics.
 3. **Write** `public/src/games/<id>.js` (a short lowercase id, unique, never reused).
    - **Rules** (see README): gameplay uses only the given `rng`, deterministic; a clear `deathReason`; nothing can kill you in the first 2s; every threat is visible or telegraphed before it can hit.
    - **Art bar:** it must look at least as good as the existing games. Pre-render detailed sprites once with `makeSprite` (gradients, highlights, shading, texture), then use parallax or animated backgrounds, glows (`glowSprite` with `'lighter'`), particles for movement/impacts/death, and a vignette. It must stay readable on a phone at 360×640, with the player clearly distinct from threats. Keep per-frame work cheap: no `shadowBlur` or `filter` on many objects per frame.
