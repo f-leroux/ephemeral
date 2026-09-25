@@ -14,8 +14,8 @@
 // Games get an `sfx` object in create():
 //   const zap = sfx.sound({ wave: 'saw', freq: 900, freqEnd: 200, release: 0.2 });
 //   sfx.play(zap, { volume: 1, pitch: 1, pan: 0, delay: 0 });   // pan -1 (left) .. 1 (right)
-//   const hum = sfx.loop({ wave: 'saw', freq: 55, lowpass: 300, volume: 0.2 });
-//   hum.set({ volume: 0.5, pitch: 1.2 });                        // smooth changes
+// sfx.loop(spec) also exists for a sustained sound (returns { set({ volume, pitch }), stop() }),
+// but games should avoid continuous sounds: players find them annoying. Prefer one-shots.
 // Loops are stopped automatically when the run ends.
 
 const MUTE_KEY = 'ephemeral:muted';
@@ -222,6 +222,8 @@ export function engineSfx() {
     thud: kit.sound({ wave: 'sine', freq: 140, freqEnd: 40, sustain: 0.05, release: 0.45, volume: 0.9 }),
     whoosh: kit.sound({ wave: 'noise', freq: 600, freqEnd: 5000, attack: 0.9, sustain: 0.2, release: 0.6, volume: 0.18, lowpass: 3000 }),
     shimmer: kit.sound({ wave: 'triangle', freq: 1320, sustain: 0.05, release: 0.6, volume: 0.25, vibrato: 0.01 }),
+    // a warm, soft note for the intro chord: mellow filtered triangle, slow swell, long tail
+    pad: kit.sound({ wave: 'triangle', freq: 261.63, attack: 0.15, sustain: 0.35, release: 1.6, volume: 0.3, lowpass: 700, vibrato: 0.003, vibratoRate: 5 }),
     note: kit.sound({ wave: 'square', freq: 523.25, sustain: 0.1, release: 0.3, volume: 0.35, lowpass: 2500 }),
   };
   engineSounds = s;

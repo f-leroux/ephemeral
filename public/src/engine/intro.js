@@ -86,10 +86,10 @@ export function playIntro({ canvas, game, labelEl, taglineEl }) {
 
     function frame(now) {
       const T = (now - start) / 1000;
-      // a soft chord as the title snaps together
+      // a warm C major chord (with a low C underneath) as the title snaps together
       if (!chimed && T > 2.1 && sounds) {
         chimed = true;
-        [1, 1.25, 1.5, 2].forEach((p, i) => sounds.kit.play(sounds.shimmer, { pitch: p, delay: i * 0.07, volume: 0.7 }));
+        [0.5, 1, 1.26, 1.5].forEach((p, i) => sounds.kit.play(sounds.pad, { pitch: p, delay: i * 0.06, volume: p < 1 ? 0.9 : 0.6 }));
       }
       const { g, cw: w, ch: h, dpr } = fitCanvas(canvas);
       g.setTransform(dpr, 0, 0, dpr, 0, 0);

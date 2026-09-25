@@ -185,7 +185,6 @@ export default {
     const blocks = [];
     const popups = [];
     const snd = {
-      purr: sfx.loop({ wave: 'triangle', freq: 72, lowpass: 380, volume: 0.28 }),
       appear: sfx.sound({ wave: 'sine', freq: 660, freqEnd: 990, sustain: 0.05, release: 0.15, volume: 0.35 }),
       ding: sfx.sound({ wave: 'triangle', freq: 1046.5, sustain: 0.06, release: 0.35, volume: 0.5 }),
       buzz: sfx.sound({ wave: 'square', freq: 190, freqEnd: 120, sustain: 0.3, release: 0.15, volume: 0.35, lowpass: 1400 }),
@@ -247,7 +246,6 @@ export default {
         }
 
         car.update(dt, dir);
-        snd.purr.set({ pitch: 0.8 + (scroll / 172) * 0.5 + Math.abs(car.lean) * 0.15 });
 
         for (const gt of gates) {
           gt.y += scroll * dt;

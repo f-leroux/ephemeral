@@ -221,8 +221,7 @@ export default {
     const shades = [];
     const grates = [];
     const snd = {
-      cicadas: sfx.loop({ wave: 'noise', freq: 4800, vibrato: 0.35, vibratoRate: 32, lowpass: 6000, volume: 0.07 }),
-      sizzle: sfx.loop({ wave: 'noise', freq: 9000, lowpass: 7000, volume: 0.2 }),
+      hiss: sfx.sound({ wave: 'noise', freq: 9000, freqEnd: 5000, attack: 0.02, sustain: 0.05, release: 0.25, volume: 0.22, lowpass: 7000 }),
       tink: sfx.sound({ wave: 'sine', freq: 2400, attack: 0.002, sustain: 0.02, release: 0.35, volume: 0.3 }),
       drip: sfx.sound({ wave: 'sine', freq: 1100, freqEnd: 420, attack: 0.002, sustain: 0.02, release: 0.08, volume: 0.35 }),
       fry: sfx.sound({ wave: 'noise', freq: 8000, freqEnd: 2500, sustain: 0.35, release: 0.7, volume: 0.7 }),
@@ -345,8 +344,8 @@ export default {
 
         inShade = shadeAt(cube.x, PLAYER_Y);
         if (inShade && !wasShade) sfx.play(snd.tink, { pitch: 0.9 + ice * 0.4 });
+        if (!inShade && wasShade) sfx.play(snd.hiss, { volume: 0.6 + heat * 0.4 });
         wasShade = inShade;
-        snd.sizzle.set({ volume: inShade ? 0 : 0.5 + heat * 0.5, pitch: 0.8 + heat * 0.4 });
         dripIn -= dt;
         if (!inShade && ice < 0.4 && dripIn <= 0) {
           dripIn = 0.18 + ice * 0.8; // faster drips as you shrink

@@ -249,7 +249,6 @@ export default {
     const comets = [];
     const rings = [];
     const snd = {
-      hum: sfx.loop({ wave: 'saw', freq: 55, lowpass: 240, volume: 0.22 }),
       whoosh: sfx.sound({ wave: 'noise', freq: 2500, freqEnd: 700, attack: 0.03, sustain: 0.04, release: 0.2, volume: 0.35, lowpass: 3000 }),
       siren: sfx.sound({ wave: 'square', freq: 880, freqEnd: 640, sustain: 0.1, release: 0.06, volume: 0.22, lowpass: 3200 }),
       streak: sfx.sound({ wave: 'noise', freq: 5000, freqEnd: 400, sustain: 0.08, release: 0.4, volume: 0.55 }),
@@ -312,7 +311,6 @@ export default {
         }
 
         mover.update(dt, dir);
-        snd.hum.set({ pitch: scroll / 210, volume: 0.7 + 0.3 * Math.abs(mover.lean) });
 
         for (let i = rocks.length - 1; i >= 0; i--) {
           const r = rocks[i];
