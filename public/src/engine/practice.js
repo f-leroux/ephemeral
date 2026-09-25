@@ -90,7 +90,7 @@ export function startPractice(canvas) {
       g.fillText('hold right  ▶', (cw * 3) / 4, ly);
     } else {
       g.fillStyle = 'rgba(255,255,255,0.75)';
-      g.fillText('←  →   to move   (or hold either side)', cw / 2, ly);
+      g.fillText('←  →   to move', cw / 2, ly);
     }
 
     raf = requestAnimationFrame(frame);
