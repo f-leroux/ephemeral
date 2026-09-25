@@ -5,4 +5,4 @@ compatibility_date = "2026-09-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "ephemeral-scores"
-database_id = "FILL_IN_AFTER_D1_CREATE"
+database_id = "d0464353-818b-41aa-9e00-49c1ddcf79a7"
