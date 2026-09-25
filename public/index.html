@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#07070c" />
+    <meta name="description" content="A new game every day. Sixty seconds. One try." />
+    <title>ephemeral</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2307070c'/%3E%3Crect x='7' y='7' width='6' height='6' fill='%23ffd36b'/%3E%3Crect x='19' y='11' width='5' height='5' fill='%237ee0ff'/%3E%3Crect x='11' y='19' width='4' height='4' fill='%23ff6b8b'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;800&family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+
+    <section id="home" class="screen" hidden>
+      <div class="column">
+        <p class="eyebrow" id="home-date"></p>
+        <h1 class="logo" id="logo" aria-label="ephemeral"></h1>
+        <p class="lede">A new game every day.<br />Sixty seconds. One try.</p>
+
+        <div id="home-fresh">
+          <button class="btn primary" id="play-btn">Play today's game</button>
+          <p class="fine">Hold the left or right side of the screen to move<br />(or use ← → on a keyboard). Survive as long as you can.</p>
+        </div>
+
+        <div id="home-played" hidden>
+          <div class="card played-card">
+            <p class="eyebrow">You played today</p>
+            <p class="played-score" id="played-score"></p>
+            <button class="btn" id="see-results-btn">See results</button>
+          </div>
+          <p class="fine">Next game in <span class="countdown" data-countdown></span></p>
+        </div>
+
+        <div id="dev-panel" class="dev" hidden>
+          <p class="eyebrow">dev mode</p>
+          <label>Game <select id="dev-game"></select></label>
+          <p class="fine">Scores go to a separate dev bucket. Unlimited tries.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="intro" class="screen overlay" hidden>
+      <p class="eyebrow intro-label" id="intro-label"></p>
+      <p class="intro-tagline" id="intro-tagline"></p>
+    </section>
+
+    <section id="results" class="screen" hidden>
+      <div class="column">
+        <p class="eyebrow" id="res-title"></p>
+        <p class="big-score"><span id="res-score"></span><small>/ 60s</small></p>
+        <p class="res-reason" id="res-reason"></p>
+        <p class="res-squares" id="res-squares"></p>
+
+        <div class="card">
+          <p class="eyebrow">Everyone today</p>
+          <div class="histogram" id="histogram"></div>
+          <div class="hist-axis"><span>0s</span><span>30s</span><span>🏁</span></div>
+          <p class="fine" id="res-percentile"></p>
+        </div>
+
+        <button class="btn primary" id="share-btn">Share</button>
+        <p class="fine">Today's game is gone at midnight. Next one in <span class="countdown" data-countdown></span></p>
+        <button class="btn ghost" id="home-btn">Home</button>
+      </div>
+    </section>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>

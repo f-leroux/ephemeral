@@ -1,0 +1,10 @@
+{
+  "name": "ephemeral",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A daily 60-second game that is reimagined every day.",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
