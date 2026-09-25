@@ -216,11 +216,12 @@ export function engineSfx() {
   const kit = createSfx();
   const s = {
     kit,
-    beep: kit.sound({ wave: 'sine', freq: 660, sustain: 0.06, release: 0.12, volume: 0.5 }),
-    go: kit.sound({ wave: 'triangle', freq: 880, freqEnd: 1320, sustain: 0.12, release: 0.25, volume: 0.55 }),
+    // countdown: a soft plucked G4 for 3-2-1, then GO strums a C major chord that resolves it
+    beep: kit.sound({ wave: 'triangle', freq: 392, attack: 0.004, sustain: 0.04, release: 0.3, volume: 0.45, lowpass: 1100 }),
+    pluck: kit.sound({ wave: 'triangle', freq: 261.63, attack: 0.004, sustain: 0.1, release: 0.7, volume: 0.4, lowpass: 1300 }),
     tick: kit.sound({ wave: 'sine', freq: 1200, attack: 0.001, sustain: 0.01, release: 0.05, volume: 0.25 }),
     thud: kit.sound({ wave: 'sine', freq: 140, freqEnd: 40, sustain: 0.05, release: 0.45, volume: 0.9 }),
-    whoosh: kit.sound({ wave: 'noise', freq: 600, freqEnd: 5000, attack: 0.9, sustain: 0.2, release: 0.6, volume: 0.18, lowpass: 3000 }),
+    whoosh: kit.sound({ wave: 'noise', freq: 400, freqEnd: 1600, attack: 1.1, sustain: 0.2, release: 0.9, volume: 0.16, lowpass: 900 }),
     shimmer: kit.sound({ wave: 'triangle', freq: 1320, sustain: 0.05, release: 0.6, volume: 0.25, vibrato: 0.01 }),
     // a warm, soft note for the intro chord: mellow filtered triangle, slow swell, long tail
     pad: kit.sound({ wave: 'triangle', freq: 261.63, attack: 0.15, sustain: 0.35, release: 1.6, volume: 0.3, lowpass: 700, vibrato: 0.003, vibratoRate: 5 }),
@@ -228,6 +229,13 @@ export function engineSfx() {
   };
   engineSounds = s;
   return s;
+}
+
+// GO: a quick strum of C major (C4 E4 G4 C5).
+export function playGo() {
+  const s = engineSfx();
+  if (!s) return;
+  [1, 1.26, 1.5, 2].forEach((p, i) => s.kit.play(s.pluck, { pitch: p, delay: i * 0.025, volume: p === 2 ? 0.6 : 0.8 }));
 }
 
 // A major arpeggio for surviving all 60 seconds.

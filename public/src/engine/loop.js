@@ -20,7 +20,7 @@ import { createRng } from './rng.js';
 import { createInput } from './input.js';
 import { fitCanvas, DISPLAY_FONT, BODY_FONT } from './stage.js';
 import { createParticles, wrapText, easeOutCubic } from './kit.js';
-import { createSfx, engineSfx, playFanfare, suspendAudio } from './sound.js';
+import { createSfx, engineSfx, playFanfare, playGo, suspendAudio } from './sound.js';
 
 export const W = 360;
 export const H = 640;
@@ -93,7 +93,7 @@ export function runGame({ canvas, game, seed, onProgress }) {
         if (countdown <= 0) {
           phase = 'play';
           acc = 0;
-          if (beeps) beeps.kit.play(beeps.go);
+          playGo();
         }
       } else if (phase === 'play') {
         acc += dt;
