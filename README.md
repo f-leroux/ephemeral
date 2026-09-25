@@ -1,5 +1,7 @@
 # ephemeral
 
+https://ephemeralgame.com
+
 A daily 60-second game. You move left and right, and you die on your first mistake. The score is how long you survived. Everyone gets one try per day, and the game is reimagined every day: the controls, the timer and the one-try rule stay the same, and everything else can change.
 
 ## Run it
@@ -22,7 +24,7 @@ To test on a phone on the same Wi-Fi, open `http://<your-computer-ip>:5173/?dev`
 
 ## Deployment
 
-- **Game:** GitHub Pages. Every push to `main` runs `scripts/check-game.mjs` and, if every game passes, publishes `public/` (`.github/workflows/pages.yml`).
+- **Game:** https://ephemeralgame.com, on GitHub Pages (DNS on Cloudflare, records set to DNS only). Every push to `main` runs `scripts/check-game.mjs` and, if every game passes, publishes `public/` (`.github/workflows/pages.yml`).
 - **Scores:** a Cloudflare Worker with a D1 database, in `worker/`. `public/src/config.js` points the game at it (and at `server.js` when running locally). To redeploy it: `cd worker && npx wrangler deploy`.
 
 ## Layout
