@@ -13,6 +13,7 @@ import { submitScore, fetchStats } from './engine/api.js';
 import { renderResults, shareText } from './engine/results.js';
 import { GAMES, gameIdFor, loadGame } from './schedule.js';
 import { unlockAudio, isMuted, setMuted } from './engine/sound.js';
+import { startPractice } from './engine/practice.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -26,6 +27,7 @@ const canvas = $('stage');
 let gameId = (DEV && params.get('game')) || gameIdFor(DAY, DAY_NUM);
 let game;
 let stopAmbient = null;
+let stopPractice = null;
 let lastResult = null;
 
 // ---------- persistence (one try per day) ----------
@@ -54,6 +56,13 @@ function saveState(state) {
 
 function show(id) {
   for (const el of document.querySelectorAll('.screen')) el.hidden = el.id !== id;
+  // the practice strip only runs while the home screen shows it
+  const practising = id === 'home' && !$('home-fresh').hidden;
+  if (practising && !stopPractice) stopPractice = startPractice($('practice'));
+  if (!practising && stopPractice) {
+    stopPractice();
+    stopPractice = null;
+  }
 }
 
 function ambient(on) {

@@ -1,5 +1,6 @@
 // Left/right input: hold either half of the screen, or use arrow keys / A-D.
 // KeyA/KeyD are physical key codes, so this also maps to Q/D on AZERTY keyboards.
+// Pass an element instead of window to use the halves of that element (the home practice strip).
 
 const LEFT_KEYS = new Set(['ArrowLeft', 'KeyA']);
 const RIGHT_KEYS = new Set(['ArrowRight', 'KeyD']);
@@ -8,7 +9,12 @@ export function createInput(target = window) {
   const keys = new Set();
   const pointers = new Map(); // pointerId -> -1 | 1
 
-  const sideOf = (e) => (e.clientX < window.innerWidth / 2 ? -1 : 1);
+  const el = target === window ? null : target;
+  const sideOf = (e) => {
+    if (!el) return e.clientX < window.innerWidth / 2 ? -1 : 1;
+    const r = el.getBoundingClientRect();
+    return e.clientX < r.left + r.width / 2 ? -1 : 1;
+  };
 
   const onKeyDown = (e) => {
     if (LEFT_KEYS.has(e.code) || RIGHT_KEYS.has(e.code)) {
@@ -31,12 +37,12 @@ export function createInput(target = window) {
     pointers.clear();
   };
 
-  target.addEventListener('keydown', onKeyDown);
-  target.addEventListener('keyup', onKeyUp);
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
   target.addEventListener('pointerdown', onPointerDown);
-  target.addEventListener('pointermove', onPointerMove);
-  target.addEventListener('pointerup', onPointerUp);
-  target.addEventListener('pointercancel', onPointerUp);
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointercancel', onPointerUp);
   window.addEventListener('blur', onBlur);
 
   return {
@@ -55,12 +61,12 @@ export function createInput(target = window) {
       return (right ? 1 : 0) - (left ? 1 : 0);
     },
     dispose() {
-      target.removeEventListener('keydown', onKeyDown);
-      target.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
       target.removeEventListener('pointerdown', onPointerDown);
-      target.removeEventListener('pointermove', onPointerMove);
-      target.removeEventListener('pointerup', onPointerUp);
-      target.removeEventListener('pointercancel', onPointerUp);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
       window.removeEventListener('blur', onBlur);
     },
   };

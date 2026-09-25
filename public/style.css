@@ -143,6 +143,7 @@ body {
 
 #home-fresh,
 #home-played {
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -153,6 +154,24 @@ body {
 #home-fresh[hidden],
 #home-played[hidden] {
   display: none;
+}
+
+.practice {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.practice canvas {
+  display: block;
+  width: 100%;
+  height: 104px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  touch-action: none;
+  cursor: pointer;
 }
 
 .card {
