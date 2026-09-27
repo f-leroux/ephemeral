@@ -27,9 +27,11 @@ jobs:
           node-version: 22
       - name: Check every game module
         run: node scripts/check-game.mjs
+      - name: Build (version-stamp imports so browsers never mix old and new files)
+        run: node scripts/stamp-version.mjs _site "${GITHUB_SHA::8}"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: public
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

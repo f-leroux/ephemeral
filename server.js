@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const PUBLIC = path.join(ROOT, 'public');
+const PUBLIC = process.env.PUBLIC_DIR ? path.resolve(process.env.PUBLIC_DIR) : path.join(ROOT, 'public'); // PUBLIC_DIR: serve a built copy instead
 const DATA_FILE = path.join(ROOT, 'data', 'scores.json');
 const PORT = Number(process.env.PORT) || 5173;
 const DURATION = 60;

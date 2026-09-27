@@ -25,7 +25,7 @@ To test on a phone on the same Wi-Fi, open `http://<your-computer-ip>:5173/?dev`
 
 ## Deployment
 
-- **Game:** https://ephemeralgame.com, on GitHub Pages (DNS on Cloudflare, records set to DNS only). Every push to `main` runs `scripts/check-game.mjs` and, if every game passes, publishes `public/` (`.github/workflows/pages.yml`).
+- **Game:** https://ephemeralgame.com, on GitHub Pages (DNS on Cloudflare, records set to DNS only). Every push to `main` runs `scripts/check-game.mjs` and, if every game passes, publishes `public/` (`.github/workflows/pages.yml`). `scripts/stamp-version.mjs` adds `?v=<commit>` to every import first, because Pages lets browsers cache files for 10 minutes.
 - **Scores:** a Cloudflare Worker with a D1 database, in `worker/`. `public/src/config.js` points the game at it (and at `server.js` when running locally). To redeploy it: `cd worker && npx wrangler deploy`.
 
 ## Layout
