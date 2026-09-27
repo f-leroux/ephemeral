@@ -9,3 +9,4 @@ One line per day, oldest first. The daily agent reads all of it before choosing 
 | 1 | 2026-09-25 | ☄️ Asteroid Run (`asteroids`) | dodge falling obstacles | Spaceship in a thickening debris field | Telegraphed comets, walls with one gap; space / neon-blue |
 | 2 | 2026-09-26 | 🧠 Quiz Highway (`quiz`) | pick the correct lane under time pressure | Drive through the lane with the right answer to trivia questions | More lanes, less reading time, roadblocks; synthwave |
 | 3 | 2026-09-27 | 🧊 Heatwave (`heatwave`) | stay inside moving safe zones | Ice cube that melts in sunlight, refreezes in shade | Moving cloud shadows, hot grates; sunny café street, warm palette |
+| 4 | 2026-09-28 | 🎪 Tightrope (`tightrope`) | balance an unstable lean (inverted pendulum) | Acrobat on a high wire under the big top; left/right pushes your lean back | Telegraphed gusts, pigeons landing on the pole ends, knots that kick your feet; circus red & gold |
