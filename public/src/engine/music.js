@@ -41,6 +41,11 @@ export function setMusicEnabled(on) {
   if (!on) stopSong();
 }
 
+// True when a song can actually play right now (loaded, and not turned off).
+export function musicReady() {
+  return !!repl && enabled && !isMuted();
+}
+
 // Start downloading Strudel early (on the home screen) so it's ready by GO.
 export function preloadMusic() {
   loading ||= import(STRUDEL_URL)

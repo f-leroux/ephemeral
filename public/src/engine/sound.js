@@ -143,8 +143,9 @@ function toBuffer(data) {
   return buf;
 }
 
-// A per-run sound kit. Everything is a silent no-op when audio is unavailable.
-export function createSfx() {
+// A per-run sound kit. Everything is a silent no-op when audio is unavailable, or when
+// `silent` is set (a game's own effects are dropped while its music plays).
+export function createSfx({ silent = false } = {}) {
   const loops = new Set();
   const lastPlayed = new Map();
 
@@ -154,7 +155,7 @@ export function createSfx() {
     },
 
     play(sound, { volume = 1, pitch = 1, pan = 0, delay = 0 } = {}) {
-      if (!ctx || !sound?.buffer || muted) return;
+      if (!ctx || !sound?.buffer || muted || silent) return;
       // the same sound can't retrigger more than ~25 times a second
       const now = ctx.currentTime;
       if (!delay && now - (lastPlayed.get(sound) ?? -1) < 0.04) return;
@@ -175,7 +176,7 @@ export function createSfx() {
     },
 
     loop(spec) {
-      if (!ctx) return { set() {}, stop() {} };
+      if (!ctx || silent) return { set() {}, stop() {} };
       const src = ctx.createBufferSource();
       src.buffer = toBuffer(synthesize(spec, ctx.sampleRate, true));
       src.loop = true;

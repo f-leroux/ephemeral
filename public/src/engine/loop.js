@@ -22,7 +22,7 @@ import { createInput } from './input.js';
 import { fitCanvas, DISPLAY_FONT, BODY_FONT } from './stage.js';
 import { createParticles, wrapText, easeOutCubic } from './kit.js';
 import { createSfx, engineSfx, playFanfare, playGo, suspendAudio } from './sound.js';
-import { playSong, stopSong } from './music.js';
+import { playSong, stopSong, musicReady } from './music.js';
 
 export const W = 360;
 export const H = 640;
@@ -40,7 +40,9 @@ function fitFont(g, text, weight, size, family, maxWidth) {
 export function runGame({ canvas, game, seed, onProgress, music = null }) {
   return new Promise((resolve) => {
     const rng = createRng(seed);
-    const sfx = createSfx();
+    // with music playing, the song replaces the game's own effects and the final-seconds ticks
+    const withMusic = !!music && musicReady();
+    const sfx = createSfx({ silent: withMusic });
     const beeps = engineSfx();
     const inst = game.create({ rng, W, H, duration: DURATION, sfx });
     const input = createInput(window);
@@ -134,7 +136,7 @@ export function runGame({ canvas, game, seed, onProgress, music = null }) {
         // the last ten seconds tick, rising in pitch
         if (phase === 'play' && Math.floor(t) > lastTick) {
           lastTick = Math.floor(t);
-          if (beeps) beeps.kit.play(beeps.tick, { pitch: 1 + (lastTick - 50) * 0.06 });
+          if (beeps && !withMusic) beeps.kit.play(beeps.tick, { pitch: 1 + (lastTick - 50) * 0.06 });
         }
         if (onProgress && t - lastSaved >= 0.25) {
           lastSaved = t;

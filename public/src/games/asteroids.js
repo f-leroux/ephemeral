@@ -228,30 +228,31 @@ export default {
   tagline: 'Steer your ship through the debris field. One touch and it’s over. Watch for red warnings: comets.',
   colors: { bg: '#05060f', fg: '#eef1ff', accent: '#7ee0ff' },
 
-  // 120 BPM in C minor: 30 bars of 2s = the full minute, building in four sections.
+  // 144 BPM in C minor (Cm – Ab – Eb – Bb): 36 bars of 1.67s = the full minute, building in four sections.
   music: {
-    cps: 0.5,
+    cps: 0.6,
     setup: `
-      const chords = "<[c3,eb3,g3] [ab2,c3,eb3] [f2,ab2,c3] [g2,b2,d3]>"
-      const pad = note(chords).s("sawtooth").attack(0.6).release(1.2)
-        .lpf(saw.range(450, 1600).slow(30)).lpq(2).gain(0.1).room(0.5).roomsize(4)
-      const bass = note("<c2 ab1 f1 g1>").struct("x*8").s("triangle")
-        .decay(0.14).sustain(0).lpf(900).gain(0.5)
-      const kick = note("c1*4").s("sine").decay(0.22).sustain(0).gain(0.7)
-      const hats = s("~ white ~ white ~ white ~ white").decay(0.03).sustain(0).hpf(6500).gain(0.05)
-      const hats16 = s("white*16").decay(0.025).sustain(0).hpf(6500).gain(sine.range(0.03, 0.06).fast(4))
-      const snare = s("~ pink ~ pink").decay(0.12).sustain(0).hpf(1200).lpf(5000).gain(0.12).room(0.3)
-      const arp = note("<[c4 eb4 g4 c5 g4 eb4 c4 eb4] [ab3 c4 eb4 ab4 eb4 c4 ab3 c4] [f3 ab3 c4 f4 c4 ab3 f3 ab3] [g3 b3 d4 g4 d4 b3 g3 b3]>")
-        .s("triangle").decay(0.16).sustain(0).lpf(2200).gain(0.16)
-        .delay(0.3).delaytime(0.375).delayfeedback(0.35).pan(sine.range(0.35, 0.65).slow(4))
-      const lead = note("<g4 ab4 c5 b4>").s("triangle").attack(0.08).decay(0.4).sustain(0.5).release(0.6)
-        .lpf(1800).gain(0.14).room(0.5).roomsize(4)
+      const chords = "<[c3,eb3,g3] [ab2,c3,eb3] [eb3,g3,bb3] [bb2,d3,f3]>"
+      const pad = note(chords).s("sawtooth").attack(0.2).release(0.8)
+        .lpf(saw.range(700, 2200).slow(36)).gain(0.07).room(0.4).roomsize(3)
+      const bass = note("<c2 ab1 eb2 bb1>").struct("x*16").s("sawtooth")
+        .decay(0.09).sustain(0).lpf(saw.range(350, 1300).slow(36)).lpq(4).gain(0.28)
+      const kick = note("c1*4").s("sine").decay(0.18).sustain(0).gain(0.85)
+      const kickFill = note("c1 c1 c1 [c1 c1]").s("sine").decay(0.16).sustain(0).gain(0.85)
+      const hatsOff = s("[~ white]*4").decay(0.035).sustain(0).hpf(7000).gain(0.06)
+      const hats16 = s("white*16").decay(0.025).sustain(0).hpf(7000).gain("[0.03 0.06]*8")
+      const clap = s("~ pink ~ pink").decay(0.1).sustain(0).hpf(1500).lpf(6000).gain(0.16).room(0.25)
+      const arp = note("<[c4 eb4 g4 c5]*4 [ab3 c4 eb4 ab4]*4 [eb4 g4 bb4 eb5]*4 [bb3 d4 f4 bb4]*4>")
+        .s("triangle").decay(0.08).sustain(0).lpf(3000).gain(0.14)
+        .delay(0.25).delaytime(0.1875).delayfeedback(0.3).pan(sine.range(0.3, 0.7).fast(2))
+      const lead = note("<[c5 ~ g4 c5 eb5 ~ d5 c5] [c5 ~ ab4 c5 eb5 ~ f5 eb5] [eb5 ~ bb4 eb5 g5 ~ f5 eb5] [d5 ~ bb4 d5 f5 ~ eb5 d5]>")
+        .s("square").decay(0.14).sustain(0.25).release(0.1).lpf(2000).gain(0.08).delay(0.2).delaytime(0.375).delayfeedback(0.25)
     `,
     song: `arrange(
-      [6, stack(pad, bass)],
-      [8, stack(pad, bass, kick, hats)],
-      [8, stack(pad, bass, kick, hats, snare, arp)],
-      [8, stack(pad, bass, kick, hats16, snare, arp, lead)]
+      [4, stack(pad, bass, kick)],
+      [8, stack(pad, bass, kick, hatsOff, clap)],
+      [12, stack(pad, bass, kick, hats16, clap, arp)],
+      [12, stack(pad, bass, kickFill, hats16, clap, arp, lead)]
     )`,
   },
 
