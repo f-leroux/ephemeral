@@ -228,6 +228,33 @@ export default {
   tagline: 'Steer your ship through the debris field. One touch and it’s over. Watch for red warnings: comets.',
   colors: { bg: '#05060f', fg: '#eef1ff', accent: '#7ee0ff' },
 
+  // 120 BPM in C minor: 30 bars of 2s = the full minute, building in four sections.
+  music: {
+    cps: 0.5,
+    setup: `
+      const chords = "<[c3,eb3,g3] [ab2,c3,eb3] [f2,ab2,c3] [g2,b2,d3]>"
+      const pad = note(chords).s("sawtooth").attack(0.6).release(1.2)
+        .lpf(saw.range(450, 1600).slow(30)).lpq(2).gain(0.1).room(0.5).roomsize(4)
+      const bass = note("<c2 ab1 f1 g1>").struct("x*8").s("triangle")
+        .decay(0.14).sustain(0).lpf(900).gain(0.5)
+      const kick = note("c1*4").s("sine").decay(0.22).sustain(0).gain(0.7)
+      const hats = s("~ white ~ white ~ white ~ white").decay(0.03).sustain(0).hpf(6500).gain(0.05)
+      const hats16 = s("white*16").decay(0.025).sustain(0).hpf(6500).gain(sine.range(0.03, 0.06).fast(4))
+      const snare = s("~ pink ~ pink").decay(0.12).sustain(0).hpf(1200).lpf(5000).gain(0.12).room(0.3)
+      const arp = note("<[c4 eb4 g4 c5 g4 eb4 c4 eb4] [ab3 c4 eb4 ab4 eb4 c4 ab3 c4] [f3 ab3 c4 f4 c4 ab3 f3 ab3] [g3 b3 d4 g4 d4 b3 g3 b3]>")
+        .s("triangle").decay(0.16).sustain(0).lpf(2200).gain(0.16)
+        .delay(0.3).delaytime(0.375).delayfeedback(0.35).pan(sine.range(0.35, 0.65).slow(4))
+      const lead = note("<g4 ab4 c5 b4>").s("triangle").attack(0.08).decay(0.4).sustain(0.5).release(0.6)
+        .lpf(1800).gain(0.14).room(0.5).roomsize(4)
+    `,
+    song: `arrange(
+      [6, stack(pad, bass)],
+      [8, stack(pad, bass, kick, hats)],
+      [8, stack(pad, bass, kick, hats, snare, arp)],
+      [8, stack(pad, bass, kick, hats16, snare, arp, lead)]
+    )`,
+  },
+
   create({ rng, W, H, duration, sfx }) {
     const art = rng.fork('art');
     const nebula = paintNebula(W, H, art);

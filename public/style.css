@@ -346,6 +346,14 @@ body {
   backdrop-filter: blur(6px);
 }
 
+.mute.music {
+  right: 60px;
+}
+
+.mute[hidden] {
+  display: none;
+}
+
 .mute:hover {
   opacity: 1;
 }

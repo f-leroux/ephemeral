@@ -4,6 +4,7 @@
 //   ?dev              unlimited tries, scores go to a separate "dev-" bucket
 //   ?dev&game=quiz    force a game module
 //   ?dev&date=2026-10-01  pretend it's another day
+//   ?music            play the game's Strudel song, if it has one (music is still being tested)
 
 import { dateKey, dayNumber, prettyDate, msUntilTomorrow, formatCountdown } from './engine/day.js';
 import { seedFrom } from './engine/rng.js';
@@ -14,10 +15,12 @@ import { renderResults, shareText } from './engine/results.js';
 import { GAMES, gameIdFor, loadGame } from './schedule.js';
 import { unlockAudio, isMuted, setMuted } from './engine/sound.js';
 import { startPractice } from './engine/practice.js';
+import { preloadMusic, unlockMusic, musicEnabled, setMusicEnabled, stopSong } from './engine/music.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const DEV = params.has('dev');
+const MUSIC = params.has('music');
 const DAY = (DEV && params.get('date')) || dateKey();
 const DAY_NUM = dayNumber(DAY);
 const SCORE_DAY = DEV ? `dev-${DAY}` : DAY;
@@ -106,8 +109,11 @@ async function showResults(result, stats) {
 
 // ---------- play ----------
 
+const songFor = (g) => (MUSIC ? g.music : null) ?? null;
+
 async function play() {
   unlockAudio(); // must happen inside the tap
+  unlockMusic();
   ambient(false);
   show('intro');
   $('intro-label').textContent = `Ephemeral #${DAY_NUM} · today ${game.emoji}`;
@@ -121,6 +127,7 @@ async function play() {
     game,
     seed: seedFrom(`${DAY}:${game.id}`),
     onProgress: (t) => saveState({ status: 'started', t, gameId }),
+    music: songFor(game),
   });
   saveState({ status: 'done', gameId, ...result });
 
@@ -188,6 +195,7 @@ function setupMute() {
   };
   const toggle = () => {
     setMuted(!isMuted());
+    if (isMuted()) stopSong();
     render();
   };
   btn.addEventListener('click', (e) => {
@@ -197,6 +205,24 @@ function setupMute() {
   });
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyM') toggle();
+  });
+  render();
+}
+
+function setupMusic() {
+  const btn = $('music-btn');
+  btn.hidden = !songFor(game);
+  if (btn.hidden) return;
+  preloadMusic(); // download it while the player is on the home screen
+  const render = () => {
+    btn.classList.toggle('muted', !musicEnabled());
+    btn.setAttribute('aria-label', musicEnabled() ? 'Turn music off' : 'Turn music on');
+  };
+  btn.addEventListener('click', (e) => {
+    setMusicEnabled(!musicEnabled());
+    render();
+    btn.blur();
+    e.stopPropagation();
   });
   render();
 }
@@ -235,6 +261,7 @@ async function boot() {
   finalizeInterruptedRun();
   await setupDev();
   setupMute();
+  setupMusic();
 
   $('play-btn').addEventListener('click', play);
   $('home-btn').addEventListener('click', showHome);

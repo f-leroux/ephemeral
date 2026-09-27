@@ -4,6 +4,7 @@
 //   {
 //     id, title, emoji, tagline,           // tagline: one or two sentences shown before playing
 //     colors: { bg, fg, accent },
+//     music?: { cps, setup, song },     // optional Strudel song, see music.js
 //     create({ rng, W, H, duration, sfx }) => instance   // sfx: see sound.js
 //   }
 // and an instance:
@@ -21,6 +22,7 @@ import { createInput } from './input.js';
 import { fitCanvas, DISPLAY_FONT, BODY_FONT } from './stage.js';
 import { createParticles, wrapText, easeOutCubic } from './kit.js';
 import { createSfx, engineSfx, playFanfare, playGo, suspendAudio } from './sound.js';
+import { playSong, stopSong } from './music.js';
 
 export const W = 360;
 export const H = 640;
@@ -35,7 +37,7 @@ function fitFont(g, text, weight, size, family, maxWidth) {
   if (w > maxWidth) g.font = `${weight} ${Math.floor((size * maxWidth) / w)}px ${family}`;
 }
 
-export function runGame({ canvas, game, seed, onProgress }) {
+export function runGame({ canvas, game, seed, onProgress, music = null }) {
   return new Promise((resolve) => {
     const rng = createRng(seed);
     const sfx = createSfx();
@@ -59,6 +61,7 @@ export function runGame({ canvas, game, seed, onProgress }) {
 
     const onVisibility = () => {
       suspendAudio(document.hidden);
+      if (document.hidden) stopSong();
       if (document.hidden && phase === 'play') {
         phase = 'countdown';
         countdown = COUNTDOWN;
@@ -72,6 +75,7 @@ export function runGame({ canvas, game, seed, onProgress }) {
       cancelAnimationFrame(raf);
       input.dispose();
       sfx.stopLoops();
+      stopSong();
       document.removeEventListener('visibilitychange', onVisibility);
       const survived = phase === 'survived';
       resolve({
@@ -94,6 +98,7 @@ export function runGame({ canvas, game, seed, onProgress }) {
           phase = 'play';
           acc = 0;
           playGo();
+          playSong(music, t); // from the start, or where it left off after a pause
         }
       } else if (phase === 'play') {
         acc += dt;
@@ -104,6 +109,7 @@ export function runGame({ canvas, game, seed, onProgress }) {
           t += STEP;
           if (inst.dead) {
             phase = 'dying';
+            stopSong();
             sfx.stopLoops(0.25);
             if (beeps) beeps.kit.play(beeps.thud);
             break;
@@ -111,6 +117,7 @@ export function runGame({ canvas, game, seed, onProgress }) {
           if (t >= DURATION) {
             t = DURATION;
             phase = 'survived';
+            stopSong();
             sfx.stopLoops(0.4);
             playFanfare();
             confetti.burst(W / 2, H * 0.42, {

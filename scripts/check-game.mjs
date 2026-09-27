@@ -83,6 +83,12 @@ async function check(id) {
   for (const key of REQUIRED) if (!game?.[key]) problems.push(`missing "${key}" in the default export`);
   if (game.id !== id) problems.push(`id "${game.id}" doesn't match the file name "${id}"`);
   for (const c of ['bg', 'fg', 'accent']) if (!/^#[0-9a-f]{6}$/i.test(game.colors?.[c] ?? '')) problems.push(`colors.${c} must be a #rrggbb hex`);
+  if (game.music) {
+    const { cps, song } = game.music;
+    if (!(cps > 0)) problems.push('music.cps must be a positive number');
+    if (typeof song !== 'string' || !song.trim()) problems.push('music.song must be a Strudel expression string');
+    else if (cps > 0 && !/arrange\s*\(/.test(song)) problems.push('music.song should use arrange(...) so the song builds over the minute');
+  }
   if (game.title?.length > 16) problems.push(`title is ${game.title.length} chars; keep it ≤ 16 so the intro stays legible`);
   if (problems.length) return { id, problems, lines: [] };
 

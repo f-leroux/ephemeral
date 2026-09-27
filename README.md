@@ -19,6 +19,7 @@ Development flags:
 | `/?dev`                      | unlimited tries, game picker, scores go to a `dev-` bucket |
 | `/?dev&game=heatwave`        | force a specific game module                          |
 | `/?dev&date=2026-10-01`      | pretend it's another day (changes the seed and number) |
+| `/?music`                    | play the game's Strudel song, if it has one (music is in testing) |
 
 To test on a phone on the same Wi-Fi, open `http://<your-computer-ip>:5173/?dev`.
 
