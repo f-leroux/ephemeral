@@ -355,7 +355,34 @@ export default {
   tagline: 'Hold left or right to lean back into balance on the high wire. Tip too far and you fall: brace for gusts, pigeons and knots.',
   colors: { bg: '#2a0d18', fg: '#fff1d6', accent: '#ffc24a' },
 
-  create({ rng, W, H, sfx }) {
+  // Circus waltz in F major, 3/4 at 180 BPM: one bar per cycle, 60 bars = the full minute.
+  // 8-bar progression: F – C7 – F – C7 – Bb – F – C7 – F.
+  music: {
+    cps: 1,
+    setup: `
+      const bass = note("<f2 c2 f2 c2 bb1 f2 c2 f2>").struct("x ~ ~").s("triangle")
+        .decay(0.25).sustain(0.1).lpf(700).gain(0.5)
+      const pah = note("<[a3,c4] [g3,bb3,e4] [a3,c4] [g3,bb3,e4] [bb3,d4] [a3,c4] [g3,bb3,e4] [a3,c4]>")
+        .struct("~ x x").s("square").decay(0.1).sustain(0).lpf(1400).gain(0.07)
+      const kick = note("c2 ~ ~").s("sine").decay(0.15).sustain(0).gain(0.7)
+      const brush = s("~ pink pink").decay(0.06).sustain(0).hpf(3000).gain(0.07)
+      const crash = s("<white ~ ~ ~ ~ ~ ~ ~>").decay(0.7).sustain(0).hpf(5000).gain(0.06)
+      const tune = note("<[c5 a4 f4] [e4 g4 c5] [a4 c5 f5] [e5 ~ c5] [d5 bb4 f4] [a4 c5 f5] [e5 d5 bb4] [a4 ~ ~]>")
+        .s("triangle").decay(0.3).sustain(0.2).release(0.1).lpf(3200).gain(0.16).room(0.3)
+      const harmony = note("<[a4 f4 c4] [c4 e4 g4] [f4 a4 c5] [c5 ~ g4] [bb4 f4 d4] [f4 a4 c5] [c5 bb4 g4] [f4 ~ ~]>")
+        .s("triangle").decay(0.3).sustain(0.2).release(0.1).lpf(2600).gain(0.08)
+      const runs = note("<[f4 a4 c5 a4 c5 f5] [e4 g4 bb4 g4 bb4 c5] [f4 a4 c5 f5 c5 a4] [e4 g4 bb4 c5 bb4 g4] [d4 f4 bb4 d5 bb4 f4] [f4 a4 c5 f5 c5 a4] [c5 bb4 g4 e4 g4 bb4] [a4 c5 f5 c5 a4 f4]>")
+        .s("square").decay(0.08).sustain(0).lpf(2400).gain(0.06)
+    `,
+    song: `arrange(
+      [8, stack(bass, pah)],
+      [16, stack(bass, pah, kick, tune)],
+      [18, stack(bass, pah, kick, brush, crash, tune, harmony)],
+      [18, stack(bass, pah, kick, brush, crash, tune, harmony, runs)]
+    )`,
+  },
+
+  create({ rng, W, H }) {
     const art = rng.fork('art');
     const tent = paintTent(W, H, art);
     const platform = paintPlatform();
@@ -380,18 +407,6 @@ export default {
     const gusts = [];
     const birds = [];
     const knots = [];
-    const snd = {
-      gust: sfx.sound({ wave: 'noise', freq: 1400, freqEnd: 500, attack: 0.25, sustain: 0.25, release: 0.5, volume: 0.28, lowpass: 1600 }),
-      warn: sfx.sound({ wave: 'triangle', freq: 660, freqEnd: 740, attack: 0.01, sustain: 0.05, release: 0.18, volume: 0.22, lowpass: 2200 }),
-      flap: sfx.sound({ wave: 'noise', freq: 2200, freqEnd: 900, attack: 0.005, sustain: 0.02, release: 0.07, volume: 0.3, lowpass: 3000 }),
-      coo: sfx.sound({ wave: 'sine', freq: 420, freqEnd: 360, attack: 0.04, sustain: 0.12, release: 0.2, volume: 0.3, vibrato: 0.05, vibratoRate: 16 }),
-      tock: sfx.sound({ wave: 'triangle', freq: 300, freqEnd: 250, attack: 0.002, sustain: 0.02, release: 0.12, volume: 0.3, lowpass: 1200 }),
-      thump: sfx.sound({ wave: 'sine', freq: 160, freqEnd: 70, attack: 0.002, sustain: 0.04, release: 0.2, volume: 0.55, noise: 0.15 }),
-      wobble: sfx.sound({ wave: 'triangle', freq: 330, freqEnd: 300, attack: 0.02, sustain: 0.18, release: 0.25, volume: 0.24, vibrato: 0.04, vibratoRate: 7, lowpass: 1400 }),
-      steady: sfx.sound({ wave: 'sine', freq: 880, attack: 0.004, sustain: 0.03, release: 0.4, volume: 0.18 }),
-      whistle: sfx.sound({ wave: 'sine', freq: 1100, freqEnd: 180, attack: 0.02, sustain: 0.6, release: 0.3, volume: 0.35, vibrato: 0.01, vibratoRate: 9 }),
-      boing: sfx.sound({ wave: 'sine', freq: 170, freqEnd: 120, attack: 0.005, sustain: 0.25, release: 0.5, volume: 0.55, vibrato: 0.12, vibratoRate: 11 }),
-    };
 
     let theta = 0;
     let omega = 0;
@@ -432,7 +447,6 @@ export default {
           const side = rng.chance(0.5) ? -1 : 1; // side it blows *towards*
           const warn = lerp(1.1, 0.7, p);
           gusts.push({ side, warn, max: warn, len: rng.range(0.7, lerp(1.2, 1.7, p)), age: 0, force: lerp(1.4, 2.7, p) * rng.range(0.85, 1.1) });
-          sfx.play(snd.gust, { pan: -side * 0.8, volume: 0.8 });
         }
         birdIn -= dt;
         if (t > 13 && birdIn <= 0) {
@@ -440,8 +454,6 @@ export default {
           const side = rng.chance(0.5) ? -1 : 1;
           if (!birds.some((b) => b.side === side)) {
             birds.push({ side, state: 'in', age: 0, fly: 1.3, sit: rng.range(1.8, 3.2), weight: lerp(1.2, 1.9, p) * rng.range(0.9, 1.1), x: side * (W / 2 + 30) + W / 2, y: rng.range(260, 380) });
-            sfx.play(snd.flap, { pan: side * 0.9 });
-            sfx.play(snd.flap, { pan: side * 0.9, delay: 0.12 });
           }
         }
         knotIn -= dt;
@@ -449,7 +461,6 @@ export default {
           knotIn = lerp(5, 2.3, p) * rng.range(0.8, 1.2);
           const travel = lerp(1.7, 1.15, p);
           knots.push({ d: 1 + WALK * travel, side: rng.chance(0.5) ? -1 : 1, kick: lerp(1.0, 1.8, p) * rng.range(0.9, 1.1) });
-          sfx.play(snd.tock);
         }
 
         // ---- forces on the lean ----
@@ -480,13 +491,9 @@ export default {
           if (b.state === 'in' && b.age >= b.fly) {
             b.state = 'sit';
             b.age = 0;
-            sfx.play(snd.coo, { pan: b.side * 0.7 });
-            sfx.play(snd.coo, { pan: b.side * 0.7, pitch: 1.12, delay: 0.22 });
           } else if (b.state === 'sit' && b.age >= b.sit) {
             b.state = 'out';
             b.age = 0;
-            sfx.play(snd.flap, { pan: b.side * 0.7 });
-            sfx.play(snd.flap, { pan: b.side * 0.7, delay: 0.1 });
             const [ex, ey] = poleEnd(b.side, theta, 12);
             fx.burst(ex, ey, { count: 8, speed: 60, life: 1.4, size: 3.5, gravity: 40, drag: 1.5, colors: ['#c9cfdc', '#a2a9ba', '#ffffff'] });
           } else if (b.state === 'out' && b.age > 1.2) {
@@ -504,7 +511,6 @@ export default {
           if (k.d <= 1) {
             omega += k.side * k.kick;
             cause.knot = t;
-            sfx.play(snd.thump, { pan: k.side * 0.3 });
             dust.burst(W / 2, FEET_Y, { count: 14, speed: 90, life: 0.6, size: 3, round: true, gravity: 200, colors: ['#e7cfa0', '#b98d5a'] });
             knots.splice(i, 1);
           }
@@ -521,8 +527,6 @@ export default {
         if (t > 1.2 && theta === 0) theta = nudge; // the wire is never perfectly still
 
         const nowDanger = Math.abs(theta) > DANGER_AT;
-        if (nowDanger && !danger) sfx.play(snd.wobble, { pan: Math.sign(theta) * 0.6 });
-        if (!nowDanger && danger) sfx.play(snd.steady, { pan: Math.sign(theta) * 0.3 });
         danger = nowDanger;
 
         if (Math.abs(theta) > FALL_AT) {
@@ -532,8 +536,6 @@ export default {
           else if (last === cause.gust) this.deathReason = 'Blown off the wire by a gust.';
           else if (last === cause.bird) this.deathReason = 'Tipped over by a pigeon.';
           else this.deathReason = 'Tripped on a knot in the wire.';
-          sfx.play(snd.whistle);
-          sfx.play(snd.boing, { delay: 0.75 });
           fall = { vy: -60, y: 0, spin: omega };
           fx.burst(W / 2, FEET_Y + ARM_Y, { count: 40, speed: 220, life: 1.4, size: 4, gravity: 160, drag: 1.2, colors: ['#ffc24a', '#e0325a', '#f3e2c0', '#7ee0ff'] });
         }

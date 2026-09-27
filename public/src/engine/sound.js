@@ -1,6 +1,9 @@
 // Procedural sound effects: every sound is a small settings object, synthesized in JS
 // into an AudioBuffer once, then played as often as needed. No audio files.
 //
+// Only the engine uses these now (intro, countdown, GO, ticks, death, fanfare). Games have a
+// Strudel song instead of sound effects (see music.js); the `sfx` kit they receive is silent.
+//
 // A sound spec (all optional):
 //   wave      'sine' | 'triangle' | 'square' | 'saw' | 'noise'   (default 'square')
 //   freq      start frequency in Hz (default 440). For 'noise' it sets how bright/rough it is.

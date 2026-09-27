@@ -4,7 +4,15 @@
   "private": true,
   "type": "module",
   "description": "A daily 60-second game that is reimagined every day.",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "check": "node scripts/check-game.mjs"
+  },
+  "devDependencies": {
+    "@strudel/core": "1.2.6",
+    "@strudel/mini": "1.2.6",
+    "@strudel/tonal": "1.2.6",
+    "@strudel/transpiler": "1.2.6"
   }
 }

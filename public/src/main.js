@@ -4,7 +4,6 @@
 //   ?dev              unlimited tries, scores go to a separate "dev-" bucket
 //   ?dev&game=quiz    force a game module
 //   ?dev&date=2026-10-01  pretend it's another day
-//   ?music            play the game's Strudel song, if it has one (music is still being tested)
 
 import { dateKey, dayNumber, prettyDate, msUntilTomorrow, formatCountdown } from './engine/day.js';
 import { seedFrom } from './engine/rng.js';
@@ -20,7 +19,6 @@ import { preloadMusic, unlockMusic, musicEnabled, setMusicEnabled, stopSong } fr
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const DEV = params.has('dev');
-const MUSIC = params.has('music');
 const DAY = (DEV && params.get('date')) || dateKey();
 const DAY_NUM = dayNumber(DAY);
 const SCORE_DAY = DEV ? `dev-${DAY}` : DAY;
@@ -109,7 +107,7 @@ async function showResults(result, stats) {
 
 // ---------- play ----------
 
-const songFor = (g) => (MUSIC ? g.music : null) ?? null;
+const songFor = (g) => g.music ?? null;
 
 async function play() {
   unlockAudio(); // must happen inside the tap

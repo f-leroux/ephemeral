@@ -163,7 +163,35 @@ export default {
   tagline: 'Each gate asks a question. Drive through the right answer — and dodge the roadblocks in between.',
   colors: { bg: '#140e26', fg: '#f6f1ff', accent: '#ff6bd6' },
 
-  create({ rng, W, H, sfx }) {
+  // Synthwave, 132 BPM in A minor (Am – F – C – G): 33 bars of 1.82s = the full minute.
+  music: {
+    cps: 0.55,
+    setup: `
+      const chords = "<[a2,c3,e3] [f2,a2,c3] [c3,e3,g3] [g2,b2,d3]>"
+      const pad = note(chords).s("sawtooth").attack(0.3).release(0.8)
+        .lpf(saw.range(800, 2400).slow(33)).gain(0.07).room(0.5).roomsize(3)
+      const bass = note("<[a1 a2]*4 [f1 f2]*4 [c2 c3]*4 [g1 g2]*4>").s("sawtooth")
+        .decay(0.12).sustain(0).lpf(saw.range(500, 1200).slow(33)).lpq(5).gain(0.3)
+      const kick = note("c2*4").s("sine").decay(0.18).sustain(0).gain(0.8)
+      const snare = s("~ pink ~ pink").decay(0.18).sustain(0).hpf(900).lpf(5000).gain(0.17).room(0.5).roomsize(2)
+      const hats = s("[~ white]*4").decay(0.035).sustain(0).hpf(7000).gain(0.05)
+      const hats16 = s("white*16").decay(0.02).sustain(0).hpf(7000).gain("[0.025 0.05]*8")
+      const arp = note("<[a4 e4 c5 e4]*4 [f4 c4 a4 c4]*4 [g4 e4 c5 e4]*4 [g4 d4 b4 d4]*4>")
+        .s("square").decay(0.09).sustain(0).lpf(2600).gain(0.08)
+        .delay(0.3).delaytime(0.341).delayfeedback(0.35).pan(sine.range(0.35, 0.65).fast(2))
+      const lead = note("<[e5 ~ ~ d5 c5 ~ b4 c5] [a4 ~ ~ c5 ~ ~ a4 ~] [g4 ~ ~ c5 e5 ~ d5 c5] [b4 ~ ~ d5 ~ ~ g5 ~]>")
+        .s("sawtooth").attack(0.01).decay(0.2).sustain(0.4).release(0.2).lpf(2200).gain(0.08)
+        .delay(0.25).delaytime(0.341).delayfeedback(0.3).room(0.3)
+    `,
+    song: `arrange(
+      [5, stack(pad, bass, kick)],
+      [8, stack(pad, bass, kick, hats, snare)],
+      [10, stack(pad, bass, kick, hats, snare, arp)],
+      [10, stack(pad, bass, kick, hats16, snare, arp, lead)]
+    )`,
+  },
+
+  create({ rng, W, H }) {
     const carArt = paintCar();
     const bg = paintBackground(W, H);
     const pinkGlow = glowSprite('rgba(255,90,200,1)', 40);
@@ -184,13 +212,6 @@ export default {
     const gates = [];
     const blocks = [];
     const popups = [];
-    const snd = {
-      appear: sfx.sound({ wave: 'sine', freq: 660, freqEnd: 990, sustain: 0.05, release: 0.15, volume: 0.35 }),
-      ding: sfx.sound({ wave: 'triangle', freq: 1046.5, sustain: 0.06, release: 0.35, volume: 0.5 }),
-      buzz: sfx.sound({ wave: 'square', freq: 190, freqEnd: 120, sustain: 0.3, release: 0.15, volume: 0.35, lowpass: 1400 }),
-      crash: sfx.sound({ wave: 'noise', freq: 1400, freqEnd: 90, sustain: 0.1, release: 0.6, volume: 0.8 }),
-      hurry: sfx.sound({ wave: 'square', freq: 1500, sustain: 0.03, release: 0.04, volume: 0.18, lowpass: 4000 }),
-    };
     let scroll = 92;
     let dist = 0;
     let gateIn = 0.4;
@@ -210,8 +231,7 @@ export default {
       const n = t < 12 ? 2 : t < 30 ? 3 : 4;
       const [question, correct, ...wrong] = nextQuestion(t);
       const answers = rng.shuffle([correct, ...rng.shuffle(wrong).slice(0, n - 1)]);
-      gates.push({ y: GATE_Y, n, question, answers, correct: answers.indexOf(correct), crossed: false, alpha: 0, age: 0, hurried: false });
-      sfx.play(snd.appear);
+      gates.push({ y: GATE_Y, n, question, answers, correct: answers.indexOf(correct), crossed: false, alpha: 0, age: 0 });
       // roadblocks appear between the new gate and the car: dodge, then pick your lane
       if (t > 14) spawnBlock(rng.range(310, 350), t);
       if (t > 40) spawnBlock(rng.range(410, 440), t);
@@ -222,9 +242,7 @@ export default {
       blocks.push({ x: rng.range(0, W - w), y, w, h: 22, alpha: 0 });
     }
 
-    function crash(reason, sound) {
-      sfx.play(sound);
-      if (sound !== snd.crash) sfx.play(snd.crash, { volume: 0.5 });
+    function crash(reason) {
       game.dead = true;
       game.deathReason = reason;
       fx.burst(car.x, PLAYER_Y, { count: 60, speed: 280, life: 1, size: 4, round: true, drag: 1.5, colors: ['#ff4f6d', '#ffffff', '#ffb36b', '#ff6bd6'] });
@@ -250,11 +268,6 @@ export default {
         for (const gt of gates) {
           gt.y += scroll * dt;
           gt.age += dt;
-          if (!gt.crossed && !gt.hurried && (PLAYER_Y - gt.y) / (PLAYER_Y - GATE_Y) < 0.3) {
-            gt.hurried = true;
-            sfx.play(snd.hurry);
-            sfx.play(snd.hurry, { delay: 0.12 });
-          }
           if (!gt.crossed && gt.y >= PLAYER_Y) {
             gt.crossed = true;
             gateIn = 0.25;
@@ -263,12 +276,10 @@ export default {
             flash = { lane, n: gt.n, ok, t: 0.5 };
             if (ok) {
               answered++;
-              sfx.play(snd.ding);
-              sfx.play(snd.ding, { pitch: 1.5, delay: 0.08 });
               popups.push({ x: car.x, y: PLAYER_Y - 40, life: 0.9, text: '✓' });
               fx.burst(car.x, PLAYER_Y - 20, { count: 34, speed: 240, life: 0.7, size: 4, round: true, drag: 2, colors: ['#6bffb8', '#ffffff', '#7ee0ff'] });
             } else {
-              crash(`Wrong answer — “${gt.question}” It was ${gt.answers[gt.correct]}.`, snd.buzz);
+              crash(`Wrong answer — “${gt.question}” It was ${gt.answers[gt.correct]}.`);
             }
           }
           if (gt.crossed) gt.alpha -= dt * 2.5;
@@ -282,7 +293,7 @@ export default {
           b.alpha = Math.min(1, b.alpha + dt * 4);
           if (b.y > H) blocks.splice(i, 1);
           else if (!this.dead && circleRect(car.x, PLAYER_Y, 11, b.x, b.y, b.w, b.h)) {
-            crash(`Crashed into a roadblock after ${answered} correct answer${answered === 1 ? '' : 's'}.`, snd.crash);
+            crash(`Crashed into a roadblock after ${answered} correct answer${answered === 1 ? '' : 's'}.`);
           }
         }
 

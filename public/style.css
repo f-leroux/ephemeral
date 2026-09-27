@@ -197,6 +197,18 @@ body {
   font-weight: 800;
 }
 
+.credits {
+  margin-top: 28px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.credits a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .countdown {
   font-variant-numeric: tabular-nums;
   color: var(--fg);

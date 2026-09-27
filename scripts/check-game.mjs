@@ -4,11 +4,13 @@
 //   node scripts/check-game.mjs            # every game in schedule.js
 //   node scripts/check-game.mjs heatwave   # one game
 //
-// Exits non-zero if any check fails. It does not judge fun or difficulty — play it for that.
+// Also evaluates each game's Strudel song (needs `npm install` for the dev dependencies).
+// Exits non-zero if any check fails. It does not judge fun, difficulty or how the music sounds.
 
 import { createRng, seedFrom } from '../public/src/engine/rng.js';
 import { GAMES } from '../public/src/schedule.js';
 import { createSfx } from '../public/src/engine/sound.js';
+import { createRequire, registerHooks } from 'node:module';
 
 const W = 360;
 const H = 640;
@@ -40,7 +42,89 @@ function fakeCanvas() {
   canvas.getContext = () => ctx;
   return canvas;
 }
-globalThis.document = { createElement: () => fakeCanvas() };
+globalThis.document = { createElement: () => fakeCanvas(), dispatchEvent() {}, addEventListener() {} };
+
+// ---------- music ----------
+
+// Strudel's built-in synths; anything else would need sample downloads.
+const SYNTHS = new Set(['sine', 'triangle', 'square', 'sawtooth', 'white', 'pink', 'brown']);
+let strudel;
+
+async function loadStrudel() {
+  if (strudel !== undefined) return strudel;
+  try {
+    // @kabelsalat/web (a Strudel dependency) points Node at its browser-only build; use the ESM one.
+    const require = createRequire(import.meta.url);
+    const salat = new URL(`file://${require.resolve('@kabelsalat/web').replace(/\.js$/, '.mjs')}`).href;
+    registerHooks({ resolve: (spec, ctx, next) => (spec === '@kabelsalat/web' ? { url: salat, shortCircuit: true } : next(spec, ctx)) });
+    const { log, warn } = console;
+    console.log = console.warn = () => {}; // Strudel prints a banner and a "not in browser" note on load
+    process.removeAllListeners('warning'); // and Node flags the resolve hook as experimental
+    try {
+      const [core, mini, tonal, transpiler] = await Promise.all(
+        ['@strudel/core', '@strudel/mini', '@strudel/tonal', '@strudel/transpiler'].map((m) => import(m)),
+      );
+      await core.evalScope(core, mini, tonal, { setcps: () => {} });
+      mini.miniAllStrings();
+      strudel = transpiler;
+    } finally {
+      Object.assign(console, { log, warn });
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error(e);
+    strudel = null;
+  }
+  return strudel;
+}
+
+async function checkMusic(game, problems) {
+  const music = game.music;
+  if (!music) return problems.push('no music: every game needs a 60s Strudel song (see DAILY.md)'), null;
+  const { cps, setup = '', song } = music;
+  if (!(cps > 0)) return problems.push('music.cps must be a positive number'), null;
+  if (typeof song !== 'string' || !/arrange\s*\(/.test(song)) return problems.push('music.song must be an arrange(...) expression'), null;
+
+  const bars = 60 * cps;
+  const sections = [...song.matchAll(/\[\s*(\d+(?:\.\d+)?)\s*,/g)].map((m) => Number(m[1]));
+  const total = sections.reduce((a, b) => a + b, 0);
+  if (Math.abs(total - bars) > 0.01) problems.push(`music: arrange sections add up to ${total} cycles but 60s at cps ${cps} is ${+bars.toFixed(3)}`);
+
+  const lib = await loadStrudel();
+  if (!lib) return problems.push('music: could not load Strudel to check the song — run `npm install` first'), null;
+  let pattern;
+  try {
+    ({ pattern } = await lib.evaluate(`${setup};\n(${song})`));
+    if (!pattern?.queryArc) throw new Error('the song did not produce a pattern');
+  } catch (e) {
+    return problems.push(`music: the song fails to evaluate — ${e.message.split('\n')[0]}`), null;
+  }
+
+  const perBar = [];
+  const sounds = new Set();
+  let loudest = 0;
+  try {
+    for (let c = 0; c < Math.ceil(bars); c++) {
+      const haps = pattern.queryArc(c, c + 1).filter((h) => h.hasOnset());
+      perBar.push(haps.length);
+      for (const h of haps) {
+        sounds.add(h.value?.s ?? '(no s)');
+        loudest = Math.max(loudest, Number(h.value?.gain ?? 1));
+      }
+    }
+  } catch (e) {
+    return problems.push(`music: the song fails while playing — ${e.message.split('\n')[0]}`), null;
+  }
+  const bad = [...sounds].filter((x) => !SYNTHS.has(x));
+  if (bad.length) problems.push(`music: uses ${bad.join(', ')} — only built-in synths are allowed (${[...SYNTHS].join(', ')})`);
+  if (loudest > 1) problems.push(`music: a layer has gain ${loudest}; keep every gain ≤ 1 (usually far lower)`);
+  const avg = (a) => a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
+  const q = Math.max(1, Math.floor(perBar.length / 4));
+  const start = avg(perBar.slice(0, q));
+  const end = avg(perBar.slice(-q));
+  if (!(start > 0)) problems.push('music: the first quarter of the song is silent — it should start with energy');
+  if (!(end > start * 1.3)) problems.push(`music: the song should build — last quarter has ${end.toFixed(0)} notes/bar vs ${start.toFixed(0)} at the start`);
+  return `  music    ${+bars.toFixed(2)} bars, notes/bar ${start.toFixed(0)} → ${end.toFixed(0)}, synths: ${[...sounds].join(' ')}`;
+}
 
 // ---------- bots ----------
 
@@ -83,16 +167,12 @@ async function check(id) {
   for (const key of REQUIRED) if (!game?.[key]) problems.push(`missing "${key}" in the default export`);
   if (game.id !== id) problems.push(`id "${game.id}" doesn't match the file name "${id}"`);
   for (const c of ['bg', 'fg', 'accent']) if (!/^#[0-9a-f]{6}$/i.test(game.colors?.[c] ?? '')) problems.push(`colors.${c} must be a #rrggbb hex`);
-  if (game.music) {
-    const { cps, song } = game.music;
-    if (!(cps > 0)) problems.push('music.cps must be a positive number');
-    if (typeof song !== 'string' || !song.trim()) problems.push('music.song must be a Strudel expression string');
-    else if (cps > 0 && !/arrange\s*\(/.test(song)) problems.push('music.song should use arrange(...) so the song builds over the minute');
-  }
   if (game.title?.length > 16) problems.push(`title is ${game.title.length} chars; keep it ≤ 16 so the intro stays legible`);
   if (problems.length) return { id, problems, lines: [] };
 
   const lines = [];
+  const musicLine = await checkMusic(game, problems);
+  if (musicLine) lines.push(musicLine);
   for (const [name, bot] of Object.entries(bots)) {
     const times = [];
     const reasons = new Map();

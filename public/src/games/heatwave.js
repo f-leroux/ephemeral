@@ -200,7 +200,33 @@ export default {
   tagline: 'You’re an ice cube on a scorching street. Sunlight melts you — stay in the shade to refreeze. Avoid the hot grates.',
   colors: { bg: '#f0c77a', fg: '#3b2412', accent: '#ff7a3d' },
 
-  create({ rng, W, H, sfx }) {
+  // Tropical house, 128 BPM in F major (F – Dm – Bb – C): 32 bars of 1.875s = the full minute.
+  music: {
+    cps: 32 / 60,
+    setup: `
+      const chords = "<[f3,a3,c4] [d3,f3,a3] [bb2,d3,f3] [c3,e3,g3]>"
+      const stabs = note(chords).struct("~ x ~ x ~ x ~ x").s("square")
+        .decay(0.12).sustain(0).lpf(saw.range(1200, 2600).slow(32)).gain(0.07).room(0.3)
+      const bass = note("<f2 d2 bb1 c2>").struct("x ~ ~ x ~ ~ x ~").s("triangle")
+        .decay(0.25).sustain(0.2).release(0.1).lpf(900).gain(0.45)
+      const kick = note("c2*4").s("sine").decay(0.16).sustain(0).gain(0.8)
+      const shaker = s("white*16").decay(0.02).sustain(0).hpf(6000).gain("[0.02 0.04 0.03 0.05]*4")
+      const clap = s("~ pink ~ pink").decay(0.1).sustain(0).hpf(1200).lpf(6000).gain(0.14).room(0.3)
+      const marimba = note("<[f4 a4 c5 a4 f5 c5 a4 c5] [d4 f4 a4 f4 d5 a4 f4 a4] [bb3 d4 f4 d4 bb4 f4 d4 f4] [c4 e4 g4 e4 c5 g4 e4 g4]>")
+        .s("triangle").decay(0.12).sustain(0).lpf(3500).gain(0.13)
+        .delay(0.2).delaytime(0.352).delayfeedback(0.25)
+      const lead = note("<[c5 ~ a4 c5 ~ d5 c5 ~] [a4 ~ f4 a4 ~ c5 a4 ~] [f5 ~ d5 f5 ~ e5 d5 ~] [e5 ~ c5 e5 ~ g5 e5 ~]>")
+        .s("triangle").decay(0.25).sustain(0.3).release(0.2).lpf(3000).gain(0.12).room(0.4)
+    `,
+    song: `arrange(
+      [4, stack(bass, kick, stabs)],
+      [8, stack(bass, kick, stabs, shaker, clap)],
+      [10, stack(bass, kick, stabs, shaker, clap, marimba)],
+      [10, stack(bass, kick, stabs, shaker, clap, marimba, lead)]
+    )`,
+  },
+
+  create({ rng, W, H }) {
     const art = rng.fork('art');
     const pavement = paintPavement(art);
     const canopies = Array.from({ length: 4 }, () => paintCanopy(art));
@@ -220,15 +246,6 @@ export default {
     const puddles = createParticles();
     const shades = [];
     const grates = [];
-    const snd = {
-      hiss: sfx.sound({ wave: 'noise', freq: 9000, freqEnd: 5000, attack: 0.02, sustain: 0.05, release: 0.25, volume: 0.22, lowpass: 7000 }),
-      tink: sfx.sound({ wave: 'sine', freq: 2400, attack: 0.002, sustain: 0.02, release: 0.35, volume: 0.3 }),
-      drip: sfx.sound({ wave: 'sine', freq: 1100, freqEnd: 420, attack: 0.002, sustain: 0.02, release: 0.08, volume: 0.35 }),
-      fry: sfx.sound({ wave: 'noise', freq: 8000, freqEnd: 2500, sustain: 0.35, release: 0.7, volume: 0.7 }),
-      bloop: sfx.sound({ wave: 'sine', freq: 700, freqEnd: 90, sustain: 0.3, release: 0.5, volume: 0.6, vibrato: 0.06, vibratoRate: 9 }),
-    };
-    let wasShade = true;
-    let dripIn = 0;
     let ice = 1; // 1 = solid, 0 = puddle
     let inShade = true;
     let scroll = 150;
@@ -343,14 +360,6 @@ export default {
         }
 
         inShade = shadeAt(cube.x, PLAYER_Y);
-        if (inShade && !wasShade) sfx.play(snd.tink, { pitch: 0.9 + ice * 0.4 });
-        if (!inShade && wasShade) sfx.play(snd.hiss, { volume: 0.6 + heat * 0.4 });
-        wasShade = inShade;
-        dripIn -= dt;
-        if (!inShade && ice < 0.4 && dripIn <= 0) {
-          dripIn = 0.18 + ice * 0.8; // faster drips as you shrink
-          sfx.play(snd.drip, { pitch: 0.9 + (1 - ice) * 0.5 });
-        }
         const melt = lerp(0.42, 1.05, p);
         ice = clamp(ice + (inShade ? 0.38 : -melt) * dt, 0, 1);
         const size = lerp(8, 26, ice);
@@ -369,14 +378,12 @@ export default {
           gr.y += move;
           if (gr.y - gr.r > H) grates.splice(i, 1);
           else if (circleCircle(cube.x, PLAYER_Y, size * 0.45, gr.x, gr.y, gr.r * 0.8)) {
-            if (!this.dead) sfx.play(snd.fry);
             this.dead = true;
             this.deathReason = 'Sizzled on a hot grate.';
           }
         }
 
         if (ice <= 0) {
-          if (!this.dead) sfx.play(snd.bloop);
           this.dead = true;
           this.deathReason = 'Melted into a puddle.';
         }

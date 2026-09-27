@@ -19,7 +19,6 @@ Development flags:
 | `/?dev`                      | unlimited tries, game picker, scores go to a `dev-` bucket |
 | `/?dev&game=heatwave`        | force a specific game module                          |
 | `/?dev&date=2026-10-01`      | pretend it's another day (changes the seed and number) |
-| `/?music`                    | play the game's Strudel song, if it has one (music is in testing) |
 
 To test on a phone on the same Wi-Fi, open `http://<your-computer-ip>:5173/?dev`.
 
@@ -43,7 +42,8 @@ public/src/engine/        the parts that never change
   input.js                hold left/right half of screen, or ← → / A D
   rng.js                  seeded RNG (seed = date + game id)
   kit.js                  helpers for game modules (collisions, mover, particles, sprites…)
-  sound.js                procedural sound effects + mute; engine sounds (countdown, ticks, fanfare)
+  sound.js                engine sounds (intro, countdown, GO, ticks, death, fanfare) + mute
+  music.js                plays each game's Strudel song, loaded from a CDN; music on/off
   results.js, api.js      results screen, histogram, share text
 public/src/games/         one file per daily game
 scripts/check-game.mjs    headless sanity checks for game modules
@@ -60,7 +60,8 @@ scripts/check-game.mjs    headless sanity checks for game modules
      emoji: '🧊',
      tagline: 'One or two sentences. This is the only explanation players get.',
      colors: { bg, fg, accent }, // fg is used for the timer, so it must contrast with bg
-     create({ rng, W, H, duration, sfx }) { // sfx: procedural sounds, see engine/sound.js
+     music: { cps, setup, song },  // the 60s Strudel song, see DAILY.md and engine/music.js
+     create({ rng, W, H, duration }) {
        return {
          dead: false,
          deathReason: '',       // shown on the results screen, e.g. 'Melted into a puddle.'
@@ -84,3 +85,7 @@ Rules for game modules:
 - Check it with `node scripts/check-game.mjs <id>` (crashes, early deaths, determinism), then play it with `/?dev&game=<id>`.
 
 The daily routine follows [`DAILY.md`](DAILY.md).
+
+## License
+
+Ephemeral is free software under the [GNU Affero General Public License v3.0 or later](LICENSE). Its music runs on [Strudel](https://strudel.cc), which is AGPL-3.0-or-later too. Because players use the game over the network, the site links to this source code from the home screen, as the AGPL requires.

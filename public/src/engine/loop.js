@@ -4,8 +4,8 @@
 //   {
 //     id, title, emoji, tagline,           // tagline: one or two sentences shown before playing
 //     colors: { bg, fg, accent },
-//     music?: { cps, setup, song },     // optional Strudel song, see music.js
-//     create({ rng, W, H, duration, sfx }) => instance   // sfx: see sound.js
+//     music: { cps, setup, song },      // the game's 60s Strudel song, see music.js
+//     create({ rng, W, H, duration }) => instance
 //   }
 // and an instance:
 //   {
@@ -40,9 +40,10 @@ function fitFont(g, text, weight, size, family, maxWidth) {
 export function runGame({ canvas, game, seed, onProgress, music = null }) {
   return new Promise((resolve) => {
     const rng = createRng(seed);
-    // with music playing, the song replaces the game's own effects and the final-seconds ticks
+    // Games have music instead of sound effects: their sfx kit is always silent. The engine's own
+    // cues (countdown, GO, death, fanfare) still play; the final-seconds ticks only without music.
     const withMusic = !!music && musicReady();
-    const sfx = createSfx({ silent: withMusic });
+    const sfx = createSfx({ silent: true });
     const beeps = engineSfx();
     const inst = game.create({ rng, W, H, duration: DURATION, sfx });
     const input = createInput(window);
