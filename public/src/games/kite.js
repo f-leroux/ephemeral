@@ -1,6 +1,6 @@
 // Kite Flight — a crisp autumn afternoon on a hilltop. You don't fly the kite, you walk its string:
 // it swings after you on a springy line, lagging and overshooting. Crows dive, geese pass in Vs,
-// balloons drift up from the fair below, and gusts shove the kite sideways. One touch tears it.
+// drones climb from the fields below, and gusts shove the kite sideways. One touch tears it.
 
 import {
   createMover,
@@ -13,6 +13,7 @@ import {
   glowSprite,
   vignetteSprite,
 } from '../engine/kit.js';
+import { BODY_FONT } from '../engine/stage.js';
 
 const KITE_Y = 318; // where the kite flies
 const FLYER_Y = 590; // the kid holding the string
@@ -445,35 +446,76 @@ function paintBird({ body, bodyDark, wing, wingTip, beak, cheek, up, w = 48, h =
   });
 }
 
-function paintBalloon(lit, dark) {
-  return makeSprite(34, 64, (g) => {
-    // string first, curling down
-    g.strokeStyle = 'rgba(255,255,255,0.75)';
-    g.lineWidth = 0.8;
+// A small quadcopter seen from the side: body, arms, motor pods and a camera. The rotor blur is drawn live.
+function paintDrone(shell, trim) {
+  return makeSprite(56, 30, (g) => {
+    // arms
+    g.strokeStyle = '#2b2f38';
+    g.lineWidth = 2.6;
+    g.lineCap = 'round';
     g.beginPath();
-    g.moveTo(0, 2);
-    g.bezierCurveTo(4, 12, -4, 20, 1, 30);
+    g.moveTo(-8, -2);
+    g.lineTo(-21, -6);
+    g.moveTo(8, -2);
+    g.lineTo(21, -6);
     g.stroke();
-    const grad = g.createRadialGradient(-5, -18, 1, 0, -11, 17);
-    grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(0.18, lit);
-    grad.addColorStop(1, dark);
-    g.fillStyle = grad;
+    // motor pods
+    for (const x of [-21, 21]) {
+      const pod = g.createLinearGradient(x - 3, 0, x + 3, 0);
+      pod.addColorStop(0, '#15171c');
+      pod.addColorStop(0.5, '#5a606e');
+      pod.addColorStop(1, '#15171c');
+      g.fillStyle = pod;
+      g.beginPath();
+      g.roundRect(x - 3, -10, 6, 7, 1.5);
+      g.fill();
+      g.fillStyle = '#9aa0ad';
+      g.fillRect(x - 0.8, -12.5, 1.6, 3);
+    }
+    // body shell, lit from the upper left
+    const body = g.createLinearGradient(0, -8, 0, 6);
+    body.addColorStop(0, '#ffffff');
+    body.addColorStop(0.35, shell);
+    body.addColorStop(1, trim);
+    g.fillStyle = body;
     g.beginPath();
-    g.moveTo(0, -1);
-    g.bezierCurveTo(-16, -8, -15, -30, 0, -30);
-    g.bezierCurveTo(15, -30, 16, -8, 0, -1);
+    g.moveTo(-11, 2);
+    g.quadraticCurveTo(-11, -7, 0, -7);
+    g.quadraticCurveTo(11, -7, 11, 2);
+    g.quadraticCurveTo(0, 6, -11, 2);
     g.fill();
-    g.fillStyle = dark;
+    g.strokeStyle = 'rgba(0,0,0,0.35)';
+    g.lineWidth = 0.8;
+    g.stroke();
+    g.fillStyle = 'rgba(255,255,255,0.6)';
     g.beginPath();
-    g.moveTo(-2.5, 2);
-    g.lineTo(0, -2);
-    g.lineTo(2.5, 2);
+    g.ellipse(-4, -4.5, 4, 1.2, -0.1, 0, Math.PI * 2);
     g.fill();
-    g.fillStyle = 'rgba(255,255,255,0.55)';
+    // gimbal and camera lens
+    g.fillStyle = '#20232a';
+    g.fillRect(-1.5, 4, 3, 3);
     g.beginPath();
-    g.ellipse(-6, -21, 2.2, 4.5, 0.5, 0, Math.PI * 2);
+    g.arc(0, 9, 3.6, 0, Math.PI * 2);
     g.fill();
+    g.fillStyle = '#3a6cff';
+    g.beginPath();
+    g.arc(0.6, 9.2, 1.6, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.8)';
+    g.beginPath();
+    g.arc(1.2, 8.5, 0.6, 0, Math.PI * 2);
+    g.fill();
+    // landing legs
+    g.strokeStyle = '#2b2f38';
+    g.lineWidth = 1.4;
+    g.beginPath();
+    g.moveTo(-6, 4);
+    g.lineTo(-9, 12);
+    g.lineTo(-12, 12);
+    g.moveTo(6, 4);
+    g.lineTo(9, 12);
+    g.lineTo(12, 12);
+    g.stroke();
   });
 }
 
@@ -505,7 +547,7 @@ export default {
   id: 'kite',
   title: 'Kite Flight',
   emoji: '🪁',
-  tagline: 'Walk left and right to steer your kite: it swings after you on its string, and gusts push it about. Keep it clear of crows, geese and balloons, because one touch tears it.',
+  tagline: 'Walk left and right to steer your kite: it swings after you on its string. Keep it clear of crows, geese and drones, and watch for GUST signs: the wind is about to shove it that way.',
   colors: { bg: '#1b4f9e', fg: '#fff6dc', accent: '#ff3d7f' },
 
   // Uplifting trance in D major at 140 BPM (D – A – Bm – G): 35 bars of 1.71s = the full minute.
@@ -553,7 +595,8 @@ export default {
     const bows = ['#ff3d7f', '#ffd23f', '#1fc2b0'].map(paintBow);
     const crowArt = [0, 1].map((f) => paintBird({ body: '#2a2d3a', bodyDark: '#111219', wing: '#1c1e28', wingTip: '#0a0a10', beak: '#e0b030', up: f === 0 }));
     const gooseArt = [0, 1].map((f) => paintBird({ body: '#8c8272', bodyDark: '#2a2622', wing: '#a39a8a', wingTip: '#5a524a', beak: '#1c1a18', cheek: '#f4f0e6', up: f === 0, w: 44, h: 32 }));
-    const balloonArt = [['#ff4a4a', '#a3121e'], ['#ff9a2a', '#b85a08'], ['#b061e0', '#5a1f8a']].map(([a, b]) => paintBalloon(a, b));
+    const droneArt = [['#eef1f6', '#8c95a8'], ['#4a505e', '#16181e'], ['#ff6a3a', '#a8301a']].map(([a, b]) => paintDrone(a, b));
+    const ledGlow = glowSprite('rgba(255,60,50,1)', 10);
     const leafArt = ['#e8792b', '#c9352a', '#f0b53a', '#d9602a'].map(paintLeaf);
     const sunGlow = glowSprite('rgba(255,244,200,1)', 90);
     const kiteGlow = glowSprite('rgba(255,255,255,1)', 40);
@@ -597,7 +640,7 @@ export default {
           gap += 0.75 + (n === 7 ? 0.25 : 0);
         } else if (T > 5 && rng.chance(lerp(0.2, 0.34, p))) {
           const X = rng.range(28, W - 28);
-          plan.push({ kind: 'balloon', T, X, vy: lerp(120, 185, p) * rng.range(0.9, 1.1), ph: rng.range(0, 6.28), look: rng.int(0, 2), r: 13 });
+          plan.push({ kind: 'drone', T, X, vy: lerp(120, 185, p) * rng.range(0.9, 1.1), ph: rng.range(0, 6.28), look: rng.int(0, 2), r: 13 });
         } else {
           const pair = T > 18 && rng.chance(lerp(0.05, 0.35, p));
           const sep = rng.range(96, 140);
@@ -617,7 +660,7 @@ export default {
     }
 
     function place(o, t) {
-      if (o.kind === 'balloon') {
+      if (o.kind === 'drone') {
         o.y = KITE_Y + o.vy * (o.T - t);
         o.x = o.X + Math.sin(t * 1.7 + o.ph) * 7 * clamp((o.T - t) / 0.8, 0, 1);
       } else {
@@ -651,7 +694,7 @@ export default {
 
         for (let i = plan.length - 1; i >= 0; i--) {
           const o = plan[i];
-          const lead = o.kind === 'balloon' ? (H + 50 - KITE_Y) / o.vy : (KITE_Y + 60 - (o.oy || 0)) / o.vy;
+          const lead = o.kind === 'drone' ? (H + 50 - KITE_Y) / o.vy : (KITE_Y + 60 - (o.oy || 0)) / o.vy;
           if (t < o.T - lead) continue;
           plan.splice(i, 1);
           threats.push(o);
@@ -678,7 +721,7 @@ export default {
             threats.splice(i, 1);
             continue;
           }
-          const hy = o.kind === 'balloon' ? o.y - 15 : o.y;
+          const hy = o.y;
           const dx = o.x - kite.x;
           const dy = hy - (kite.y - 4);
           const r = KITE_R + o.r;
@@ -687,10 +730,10 @@ export default {
             const secs = Math.floor(t);
             if (o.kind === 'crow') this.deathReason = `A crow tore through your kite — aloft for ${secs}s.`;
             else if (o.kind === 'goose') this.deathReason = `Flew into a flock of geese — aloft for ${secs}s.`;
-            else this.deathReason = `Your kite snagged a balloon and tangled — aloft for ${secs}s.`;
+            else this.deathReason = `A drone's propellers shredded your kite — aloft for ${secs}s.`;
             const colors = ['#ffd23f', '#2c3fd1', '#1fc2b0', '#ff3d7f', '#ffffff'];
             fx.burst(kite.x, kite.y, { count: 36, speed: 170, life: 1.3, size: 4, gravity: 120, drag: 1.2, colors });
-            if (o.kind === 'balloon') fx.burst(o.x, o.y - 15, { count: 24, speed: 220, life: 0.6, size: 3, drag: 2, colors: ['#ffffff', '#ffe0e0', '#ff4a4a'] });
+            if (o.kind === 'drone') fx.burst(o.x, o.y, { count: 26, speed: 200, life: 0.8, size: 3, gravity: 140, drag: 1.5, colors: ['#ffffff', '#ffd27a', '#ff8a3a', '#4a505e'] });
             else fx.burst(o.x, o.y, { count: 14, speed: 110, life: 1.4, size: 3.5, gravity: 60, drag: 1.5, colors: o.kind === 'crow' ? ['#111219', '#2a2d3a', '#3a3f55'] : ['#f4f0e6', '#a39a8a', '#5a524a'] });
             kite.vy = -40;
             kite.spin = (Math.random() - 0.5) * 8;
@@ -748,7 +791,7 @@ export default {
         kite.x += kite.vx * dt * 0.3;
         kite.rot += kite.spin * dt;
         for (const o of threats) {
-          if (o.kind === 'balloon') o.y -= o.vy * dt;
+          if (o.kind === 'drone') o.y -= o.vy * dt;
           else (o.y += o.vy * dt), (o.x += (o.vx || 0) * dt);
         }
         if (Math.random() < 0.4) fx.burst(kite.x, kite.y, { count: 1, speed: 30, life: 0.8, size: 3, gravity: 40, colors: ['#ffd23f', '#ff3d7f', '#1fc2b0'] });
@@ -779,10 +822,35 @@ export default {
         drawSprite(g, farHills, W / 2 - pan * 0.06, 520);
         drawSprite(g, nearHill, W / 2 - pan * 0.14, 590);
 
-        // balloons rise from the fair below
+        // drones climb from the fields below: wobbling, rotors a blur, a red light blinking
         for (const o of threats) {
-          if (o.kind !== 'balloon') continue;
-          drawSprite(g, balloonArt[o.look], o.x, o.y, { size: 34, rot: Math.sin(clock * 2 + o.ph) * 0.08 });
+          if (o.kind !== 'drone') continue;
+          const rot = Math.sin(clock * 2.3 + o.ph) * 0.07;
+          const close = clamp(1 - Math.abs(o.y - kite.y) / 150, 0, 1) * clamp(1 - Math.abs(o.x - kite.x) / 110, 0, 1);
+          if (close > 0.05) {
+            g.globalCompositeOperation = 'lighter';
+            drawSprite(g, dangerGlow, o.x, o.y, { size: 56, alpha: 0.5 * close });
+            g.globalCompositeOperation = 'source-over';
+          }
+          g.save();
+          g.translate(o.x, o.y);
+          g.rotate(rot);
+          drawSprite(g, droneArt[o.look], 0, 0, { size: 50 });
+          for (const side of [-1, 1]) {
+            const spin = Math.abs(Math.sin(clock * 40 + o.ph + side));
+            g.fillStyle = 'rgba(40,44,54,0.28)';
+            g.beginPath();
+            g.ellipse(side * 18.8, -11.5, 9 + spin * 3, 1.6, 0, 0, Math.PI * 2);
+            g.fill();
+            g.fillStyle = 'rgba(255,255,255,0.35)';
+            g.fillRect(side * 18.8 - (2 + spin * 9), -12, 4 + spin * 18, 0.9);
+          }
+          if (Math.sin(clock * 9 + o.ph) > 0.2) {
+            g.globalCompositeOperation = 'lighter';
+            drawSprite(g, ledGlow, 8, -2, { size: 16 });
+            g.globalCompositeOperation = 'source-over';
+          }
+          g.restore();
         }
 
         // the string, sagging in the wind
@@ -828,7 +896,7 @@ export default {
 
         // crows and geese, with a warm warning halo once they are close to the kite
         for (const o of threats) {
-          if (o.kind === 'balloon') continue;
+          if (o.kind === 'drone') continue;
           const close = clamp(1 - Math.abs(o.y - kite.y) / 150, 0, 1) * clamp(1 - Math.abs(o.x - kite.x) / 110, 0, 1);
           if (close > 0.05) {
             g.globalCompositeOperation = 'lighter';
@@ -870,6 +938,31 @@ export default {
         }
 
         drawSprite(g, vignette, W / 2, H / 2);
+
+        // GUST sign on the side the wind comes from: blinks as a warning, stays while it blows
+        const blowing = Math.abs(windVis) > 0.15;
+        if (warnNow || blowing) {
+          const d = warnNow ? Math.sign(warnNow) : Math.sign(windVis);
+          const alpha = warnNow ? 0.65 + 0.35 * Math.sin(clock * 14) : Math.min(1, Math.abs(windVis) * 1.6) * 0.85;
+          const label = d > 0 ? 'GUST  ▸▸' : '◂◂  GUST';
+          g.font = `800 15px ${BODY_FONT}`;
+          const w = g.measureText(label).width + 26;
+          const x = d > 0 ? 10 : W - 10 - w;
+          const y = KITE_Y - 104;
+          g.globalAlpha = alpha;
+          g.fillStyle = 'rgba(10,28,64,0.78)';
+          g.strokeStyle = 'rgba(255,255,255,0.9)';
+          g.lineWidth = 1.5;
+          g.beginPath();
+          g.roundRect(x, y, w, 30, 15);
+          g.fill();
+          g.stroke();
+          g.fillStyle = '#ffffff';
+          g.textAlign = 'center';
+          g.textBaseline = 'middle';
+          g.fillText(label, x + w / 2, y + 16);
+          g.globalAlpha = 1;
+        }
       },
     };
     return game;
