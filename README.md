@@ -16,6 +16,8 @@ Development flags:
 
 | URL                          | Effect                                                |
 | ---------------------------- | ----------------------------------------------------- |
+| `/?day=2026-09-25`           | a past game from the archive: same run as that day, unlimited tries, not recorded (works on the public site too) |
+| `/?preview`                  | the newest upcoming game (`?preview=<date>` for another), unlimited tries, not recorded |
 | `/?dev`                      | unlimited tries, game picker, scores go to a `dev-` bucket |
 | `/?dev&game=heatwave`        | force a specific game module                          |
 | `/?dev&date=2026-10-01`      | pretend it's another day (changes the seed and number) |
@@ -24,7 +26,11 @@ To test on a phone on the same Wi-Fi, open `http://<your-computer-ip>:5173/?dev`
 
 ## Deployment
 
-- **Game:** https://ephemeralgame.com, on GitHub Pages (DNS on Cloudflare, records set to DNS only). Every push to `main` runs `scripts/check-game.mjs` and, if every game passes, publishes `public/` (`.github/workflows/pages.yml`). `scripts/stamp-version.mjs` adds `?v=<commit>` to every import first, because Pages lets browsers cache files for 10 minutes.
+- **Game:** https://ephemeralgame.com, on GitHub Pages (DNS on Cloudflare, records set to DNS only). Every push to `main`, and a daily run at 08:00 UTC, checks every game (`scripts/check-game.mjs`) and builds the site with `scripts/build-site.mjs`:
+  - the **public copy** only includes games up to tomorrow (UTC) and ignores `?preview` / `?dev`, so nobody can play upcoming games early;
+  - the **private preview** (everything, `?preview` and `?dev` enabled) sits at `https://ephemeralgame.com/<PREVIEW_PATH>/`, an unlisted address stored in the `PREVIEW_PATH` repo secret;
+  - every local import gets `?v=<version>`, because Pages lets browsers cache files for 10 minutes.
+- **Daily games:** a Claude cloud routine follows [`DAILY.md`](DAILY.md) every morning, two days ahead. Playtest feedback goes in GitHub issues labelled `feedback` (by the owner); a second routine applies it following [`REVISE.md`](REVISE.md).
 - **Scores:** a Cloudflare Worker with a D1 database, in `worker/`. `public/src/config.js` points the game at it (and at `server.js` when running locally). To redeploy it: `cd worker && npx wrangler deploy`.
 
 ## Layout

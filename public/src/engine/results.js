@@ -25,8 +25,11 @@ export function shareText({ dayNum, game, result }) {
   ].join('\n');
 }
 
-export function renderResults({ els, dayNum, game, result, stats }) {
-  els.title.textContent = `Ephemeral #${dayNum} · ${game.emoji} ${game.title}`;
+// mode: 'today' | 'dev' | 'archive' (compared with that day's players, not recorded) | 'preview'
+export function renderResults({ els, dayNum, game, result, stats, mode = 'today' }) {
+  const tag = mode === 'archive' ? ' · archive' : mode === 'preview' ? ' · preview' : '';
+  els.title.textContent = `Ephemeral #${dayNum} · ${game.emoji} ${game.title}${tag}`;
+  if (els.distLabel) els.distLabel.textContent = { archive: 'Everyone that day', preview: 'Your run' }[mode] ?? 'Everyone today';
   els.score.textContent = result.score.toFixed(1);
   els.reason.textContent = result.survived ? '🏁 You survived all sixty seconds.' : result.reason;
   els.squares.textContent = shareSquares(result.score, result.survived);
@@ -49,8 +52,16 @@ export function renderResults({ els, dayNum, game, result, stats }) {
     }),
   );
 
-  if (!stats) {
+  if (mode === 'preview') {
+    els.percentile.textContent = 'Preview run: not recorded. Nobody else has played this one yet.';
+  } else if (!stats) {
     els.percentile.textContent = "Couldn't reach the server — other players' scores aren't available.";
+  } else if (mode === 'archive') {
+    // your archive run isn't in the stats, so compare against everyone who played that day
+    els.percentile.textContent = stats.total
+      ? `On that day, you'd have outlasted ${Math.round((stats.beaten / stats.total) * 100)}% of players. ` +
+        `${Math.round((stats.buckets[SQUARES] / stats.total) * 100)}% survived all 60 seconds.`
+      : 'Nobody played this one on its day.';
   } else if (stats.total <= 1) {
     els.percentile.textContent = "You're the first to play today.";
   } else {

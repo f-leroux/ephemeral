@@ -20,6 +20,7 @@
         <p class="eyebrow" id="home-date"></p>
         <h1 class="logo" id="logo" aria-label="ephemeral"></h1>
         <p class="lede">A new game every day.<br />Sixty seconds. One try.</p>
+        <p class="mode-banner" id="mode-banner" hidden></p>
 
         <div id="home-fresh">
           <div class="practice">
@@ -36,6 +37,11 @@
             <button class="btn" id="see-results-btn">See results</button>
           </div>
           <p class="fine">Next game in <span class="countdown" data-countdown></span></p>
+        </div>
+
+        <div class="links">
+          <button class="btn ghost" id="archive-btn">Past games</button>
+          <a class="btn ghost" id="today-link" href="./" hidden>Today's game</a>
         </div>
 
         <p class="fine credits">
@@ -64,15 +70,29 @@
         <p class="res-squares" id="res-squares"></p>
 
         <div class="card">
-          <p class="eyebrow">Everyone today</p>
+          <p class="eyebrow" id="res-dist-label">Everyone today</p>
           <div class="histogram" id="histogram"></div>
           <div class="hist-axis"><span>0s</span><span>30s</span><span>🏁</span></div>
           <p class="fine" id="res-percentile"></p>
         </div>
 
         <button class="btn primary" id="share-btn">Share</button>
-        <p class="fine">Today's game is gone at midnight. Next one in <span class="countdown" data-countdown></span></p>
-        <button class="btn ghost" id="home-btn">Home</button>
+        <button class="btn primary" id="again-btn" hidden>Play again</button>
+        <p class="fine" id="res-footnote">Today's game is gone at midnight. Next one in <span class="countdown" data-countdown></span></p>
+        <div class="links">
+          <button class="btn ghost" id="home-btn">Home</button>
+          <button class="btn ghost" id="res-archive-btn">Past games</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="archive" class="screen" hidden>
+      <div class="column">
+        <p class="eyebrow">Ephemeral</p>
+        <h2 class="archive-title">Past games</h2>
+        <p class="fine">Every game is gone at midnight, but you can still play old ones here, as often as you like. These runs don't count.</p>
+        <ol class="archive-list" id="archive-list"></ol>
+        <button class="btn ghost" id="archive-back">Back</button>
       </div>
     </section>
 

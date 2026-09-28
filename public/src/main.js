@@ -1,9 +1,14 @@
 // App flow: home → intro → countdown + play → results.
 //
-// URL flags for development:
-//   ?dev              unlimited tries, scores go to a separate "dev-" bucket
-//   ?dev&game=quiz    force a game module
+// Modes, from the URL:
+//   (none)                today's game: one try, score recorded
+//   ?day=2026-09-25       a past game from the archive: same run as on its day, unlimited tries, not recorded
+//   ?preview              the newest game that isn't live yet (?preview=2026-10-01 for a specific one):
+//                         unlimited tries, not recorded — for playtesting before release
+//   ?dev                  unlimited tries, scores go to a separate "dev-" bucket
+//   ?dev&game=quiz        force a game module
 //   ?dev&date=2026-10-01  pretend it's another day
+// ?preview and ?dev only work locally and on the private preview copy, never on the public site.
 
 import { dateKey, dayNumber, prettyDate, msUntilTomorrow, formatCountdown } from './engine/day.js';
 import { seedFrom } from './engine/rng.js';
@@ -11,30 +16,46 @@ import { runGame } from './engine/loop.js';
 import { playIntro, startAmbient } from './engine/intro.js';
 import { submitScore, fetchStats } from './engine/api.js';
 import { renderResults, shareText } from './engine/results.js';
-import { GAMES, gameIdFor, loadGame } from './schedule.js';
+import { GAMES, SCHEDULE, gameIdFor, loadGame } from './schedule.js';
 import { unlockAudio, isMuted, setMuted } from './engine/sound.js';
 import { startPractice } from './engine/practice.js';
 import { preloadMusic, unlockMusic, musicEnabled, setMusicEnabled, stopSong } from './engine/music.js';
+import { CHANNEL } from './build.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
-const DEV = params.has('dev');
-const DAY = (DEV && params.get('date')) || dateKey();
+const TODAY = dateKey();
+const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s ?? '');
+const upcoming = Object.keys(SCHEDULE).filter((d) => d > TODAY).sort();
+
+const TESTING = CHANNEL !== 'public';
+const MODE = TESTING && params.has('dev')
+  ? 'dev'
+  : isDate(params.get('day')) && params.get('day') < TODAY
+    ? 'archive'
+    : TESTING && params.has('preview')
+      ? 'preview'
+      : 'today';
+const DAY = {
+  dev: isDate(params.get('date')) ? params.get('date') : TODAY,
+  archive: params.get('day'),
+  preview: isDate(params.get('preview')) ? params.get('preview') : (upcoming.at(-1) ?? TODAY),
+  today: TODAY,
+}[MODE];
 const DAY_NUM = dayNumber(DAY);
-const SCORE_DAY = DEV ? `dev-${DAY}` : DAY;
 const STORE_KEY = `ephemeral:${DAY}`;
 
 const canvas = $('stage');
-let gameId = (DEV && params.get('game')) || gameIdFor(DAY, DAY_NUM);
+let gameId = (MODE === 'dev' && params.get('game')) || gameIdFor(DAY, DAY_NUM);
 let game;
 let stopAmbient = null;
 let stopPractice = null;
 let lastResult = null;
 
-// ---------- persistence (one try per day) ----------
+// ---------- persistence (one try per day, today's game only) ----------
 
 function loadState() {
-  if (DEV) return null;
+  if (MODE !== 'today') return null;
   try {
     const state = JSON.parse(localStorage.getItem(STORE_KEY));
     // A run saved for a different game (the schedule changed) doesn't count.
@@ -45,12 +66,20 @@ function loadState() {
 }
 
 function saveState(state) {
-  if (DEV) return;
+  if (MODE !== 'today') return;
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
   } catch {
     // Private mode or storage disabled: the one-try rule just can't be enforced.
   }
+}
+
+// Records the run (today and dev) or just looks up that day's players (archive).
+async function recordAndCompare(score) {
+  if (MODE === 'today') return submitScore(DAY, score);
+  if (MODE === 'dev') return submitScore(`dev-${DAY}`, score);
+  if (MODE === 'archive') return fetchStats(DAY, score);
+  return null;
 }
 
 // ---------- screens ----------
@@ -74,6 +103,25 @@ function ambient(on) {
   }
 }
 
+function setBanner() {
+  const banner = $('mode-banner');
+  banner.hidden = MODE === 'today';
+  if (MODE === 'archive') {
+    banner.textContent = `From the archive: ${game.emoji} ${game.title}. Play as often as you like; runs don't count.`;
+  } else if (MODE === 'preview') {
+    const others = upcoming.filter((d) => d !== DAY);
+    banner.replaceChildren(`Preview: ${game.emoji} ${game.title}, not live yet. Runs aren't recorded.`);
+    for (const d of others) {
+      const a = document.createElement('a');
+      a.href = `?preview=${d}`;
+      a.textContent = `#${dayNumber(d)}`;
+      banner.append(' Also upcoming: ', a);
+    }
+  } else if (MODE === 'dev') {
+    banner.textContent = 'Dev mode: unlimited tries, separate score bucket.';
+  }
+}
+
 function showHome() {
   const state = loadState();
   $('home-date').textContent = `#${DAY_NUM} · ${prettyDate(DAY)}`;
@@ -81,6 +129,8 @@ function showHome() {
   $('home-fresh').hidden = played;
   $('home-played').hidden = !played;
   if (played) $('played-score').textContent = state.survived ? '60.0s 🏁' : `${state.score.toFixed(1)}s`;
+  $('play-btn').textContent = MODE === 'today' ? "Play today's game" : 'Play';
+  $('today-link').hidden = MODE === 'today';
   ambient(true);
   show('home');
 }
@@ -95,14 +145,72 @@ async function showResults(result, stats) {
       squares: $('res-squares'),
       histogram: $('histogram'),
       percentile: $('res-percentile'),
+      distLabel: $('res-dist-label'),
     },
     dayNum: DAY_NUM,
     game,
     result,
     stats,
+    mode: MODE,
   });
+  const replayable = MODE !== 'today';
+  $('again-btn').hidden = !replayable;
+  $('share-btn').hidden = MODE === 'archive' || MODE === 'preview';
+  $('res-footnote').hidden = replayable;
   ambient(true);
   show('results');
+}
+
+// ---------- archive ----------
+
+// The list of every scheduled game, built at deploy time (archive.json). Locally, where there's
+// no build, it falls back to loading each game module for its title.
+async function archiveEntries() {
+  try {
+    const res = await fetch('archive.json', { cache: 'no-cache' });
+    if (res.ok) return await res.json();
+  } catch {
+    // fall through
+  }
+  return Promise.all(
+    Object.entries(SCHEDULE).map(async ([date, id]) => {
+      const g = await loadGame(id);
+      return { date, id, title: g.title, emoji: g.emoji };
+    }),
+  );
+}
+
+async function showArchive() {
+  const list = $('archive-list');
+  list.replaceChildren();
+  ambient(true);
+  show('archive');
+  const past = (await archiveEntries()).filter((e) => e.date < TODAY).sort((a, b) => (a.date < b.date ? 1 : -1));
+  if (!past.length) {
+    const li = document.createElement('li');
+    li.className = 'archive-empty';
+    li.textContent = 'No past games yet. Come back tomorrow.';
+    list.append(li);
+    return;
+  }
+  list.replaceChildren(
+    ...past.map((e) => {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = `?day=${e.date}`;
+      const cell = (cls, text) => {
+        const span = document.createElement('span');
+        span.className = cls;
+        span.textContent = text;
+        return span;
+      };
+      const [y, m, d] = e.date.split('-').map(Number);
+      const short = new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      a.append(cell('num', `#${dayNumber(e.date)}`), cell('emoji', e.emoji), cell('name', e.title), cell('date', short));
+      li.append(a);
+      return li;
+    }),
+  );
 }
 
 // ---------- play ----------
@@ -114,7 +222,8 @@ async function play() {
   unlockMusic();
   ambient(false);
   show('intro');
-  $('intro-label').textContent = `Ephemeral #${DAY_NUM} · today ${game.emoji}`;
+  const when = { today: 'today', dev: 'dev', archive: 'from the archive', preview: 'preview' }[MODE];
+  $('intro-label').textContent = `Ephemeral #${DAY_NUM} · ${when} ${game.emoji}`;
   $('intro-tagline').textContent = game.tagline;
   await playIntro({ canvas, game, labelEl: $('intro-label'), taglineEl: $('intro-tagline') });
   show(null);
@@ -123,14 +232,13 @@ async function play() {
   const result = await runGame({
     canvas,
     game,
-    seed: seedFrom(`${DAY}:${game.id}`),
+    seed: seedFrom(`${DAY}:${game.id}`), // the archive replays exactly the run of that day
     onProgress: (t) => saveState({ status: 'started', t, gameId }),
     music: songFor(game),
   });
   saveState({ status: 'done', gameId, ...result });
 
-  const stats = await submitScore(SCORE_DAY, result.score);
-  showResults(result, stats);
+  showResults(result, await recordAndCompare(result.score));
 }
 
 // A run that was started but never finished (reload, closed tab) counts as over.
@@ -139,7 +247,7 @@ function finalizeInterruptedRun() {
   if (state?.status !== 'started') return;
   const result = { score: state.t || 0, survived: false, reason: 'Run interrupted — you left mid-game.' };
   saveState({ status: 'done', gameId: state.gameId, ...result });
-  submitScore(SCORE_DAY, result.score);
+  submitScore(DAY, result.score);
 }
 
 // ---------- share ----------
@@ -226,13 +334,13 @@ function setupMusic() {
 }
 
 function tickCountdowns() {
-  if (!DEV && dateKey() !== DAY) return location.reload();
+  if (MODE === 'today' && dateKey() !== DAY) return location.reload();
   const text = formatCountdown(msUntilTomorrow());
   for (const el of document.querySelectorAll('[data-countdown]')) el.textContent = text;
 }
 
 async function setupDev() {
-  if (!DEV) return;
+  if (MODE !== 'dev') return;
   $('dev-panel').hidden = false;
   const select = $('dev-game');
   select.replaceChildren(
@@ -253,6 +361,8 @@ async function setupDev() {
 }
 
 async function boot() {
+  // a future ?day= isn't in the archive yet: show today's game instead
+  if (params.has('day') && MODE !== 'archive') history.replaceState(null, '', location.pathname);
   buildLogo();
   await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]);
   game = await loadGame(gameId);
@@ -260,19 +370,25 @@ async function boot() {
   await setupDev();
   setupMute();
   setupMusic();
+  setBanner();
 
   $('play-btn').addEventListener('click', play);
+  $('again-btn').addEventListener('click', play);
   $('home-btn').addEventListener('click', showHome);
   $('share-btn').addEventListener('click', share);
+  $('archive-btn').addEventListener('click', showArchive);
+  $('res-archive-btn').addEventListener('click', showArchive);
+  $('archive-back').addEventListener('click', showHome);
   $('see-results-btn').addEventListener('click', async () => {
     const state = loadState();
     const result = { score: state.score, survived: state.survived, reason: state.reason };
-    showResults(result, await fetchStats(SCORE_DAY, result.score));
+    showResults(result, await fetchStats(DAY, result.score));
   });
 
   tickCountdowns();
   setInterval(tickCountdowns, 1000);
-  showHome();
+  if (params.has('archive')) showArchive();
+  else showHome();
 }
 
 boot();

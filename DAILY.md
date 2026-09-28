@@ -1,6 +1,8 @@
 # Daily task: make tomorrow's Ephemeral
 
-You are the agent that reinvents Ephemeral every day. Each run adds **one new game for tomorrow's date** (UTC). Players see it when their local midnight arrives, so it must be committed and pushed before the run ends.
+You are the agent that reinvents Ephemeral every day. Each run adds **one new game, two days ahead**, so the owner has a full day to playtest it on the private preview and send feedback (see `REVISE.md`) before anyone can play it.
+
+**Which date:** take tomorrow and the day after tomorrow (UTC: `date -u -d tomorrow +%F`, `date -u -d '2 days' +%F`). Make the game for the earliest of the two that has no entry in `SCHEDULE`. If both have entries, stop: there's nothing to do. Make at most one game per run.
 
 ## What never changes
 
@@ -35,7 +37,7 @@ Everything else can change: the world, the character, what counts as a mistake, 
    - **Tagline:** at most two sentences. It is the only explanation players get, so it must say what to do and what kills you.
    - **Title:** ≤ 16 characters. Emoji: one that fits.
 4. **Check it:** `node scripts/check-game.mjs <id>` must pass (no crashes, no early deaths, deterministic, the simple bots mostly die well before 60s, and the song is valid). Then run `node scripts/check-game.mjs` for all games to make sure nothing else broke.
-5. **Schedule it:** add `'<id>'` to `GAMES` and `'<tomorrow YYYY-MM-DD>': '<id>'` to `SCHEDULE` in `public/src/schedule.js`, and append tomorrow's row to `HISTORY.md`. If tomorrow already has an entry, stop: it's done.
+5. **Schedule it:** add `'<id>'` to `GAMES` and `'<date YYYY-MM-DD>': '<id>'` to `SCHEDULE` in `public/src/schedule.js`, and append its row to `HISTORY.md`. The public site only publishes it the day before its date; until then it's only on the private preview.
 6. **Commit and push** to `main`, with the message `Day #<n>: <emoji> <title>` (n from `dayNumber` in `public/src/engine/day.js`).
 
 ## Don'ts
