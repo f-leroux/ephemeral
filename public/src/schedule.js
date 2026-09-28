@@ -1,7 +1,7 @@
 // Which game runs on which day. The daily agent adds a module in ./games/ and a line here.
 // Days without an entry fall back to rotating through GAMES.
 
-export const GAMES = ['asteroids', 'quiz', 'heatwave', 'tightrope', 'fireflies'];
+export const GAMES = ['asteroids', 'quiz', 'heatwave', 'tightrope', 'fireflies', 'kite'];
 
 export const SCHEDULE = {
   '2026-09-25': 'asteroids',
@@ -9,6 +9,7 @@ export const SCHEDULE = {
   '2026-09-27': 'heatwave',
   '2026-09-28': 'tightrope',
   '2026-09-29': 'fireflies',
+  '2026-09-30': 'kite',
 };
 
 export function gameIdFor(day, dayNum) {
