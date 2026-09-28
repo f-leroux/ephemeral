@@ -1,6 +1,6 @@
 // Kite Flight — a crisp autumn afternoon on a hilltop. You don't fly the kite, you walk its string:
 // it swings after you on a springy line, lagging and overshooting. Crows dive, geese pass in Vs,
-// drones climb from the fields below, and gusts shove the kite sideways. One touch tears it.
+// and drones climb from the fields below. One touch tears it.
 
 import {
   createMover,
@@ -13,7 +13,6 @@ import {
   glowSprite,
   vignetteSprite,
 } from '../engine/kit.js';
-import { BODY_FONT } from '../engine/stage.js';
 
 const KITE_Y = 318; // where the kite flies
 const FLYER_Y = 590; // the kid holding the string
@@ -547,7 +546,7 @@ export default {
   id: 'kite',
   title: 'Kite Flight',
   emoji: '🪁',
-  tagline: 'Walk left and right to steer your kite: it swings after you on its string. Keep it clear of crows, geese and drones, and watch for GUST signs: the wind is about to shove it that way.',
+  tagline: 'Walk left and right to steer your kite: it swings after you on its string. Keep it clear of crows, geese and drones, because one touch tears it.',
   colors: { bg: '#1b4f9e', fg: '#fff6dc', accent: '#ff3d7f' },
 
   // Uplifting trance in D major at 140 BPM (D – A – Bm – G): 35 bars of 1.71s = the full minute.
@@ -585,7 +584,6 @@ export default {
 
   create({ rng, W, H }) {
     const art = rng.fork('art');
-    const windRng = rng.fork('wind');
     const sky = paintSky(W, H, art);
     const clouds = [paintCloud(art, 150, 60), paintCloud(art, 110, 46), paintCloud(art, 190, 70), paintCloud(art, 90, 38)];
     const farHills = paintFarHills(W + 80, 190, art);
@@ -609,16 +607,13 @@ export default {
     const fx = createParticles();
     const threats = [];
     const plan = [];
-    const gusts = [];
     const cloudBank = Array.from({ length: 6 }, (_, i) => ({ art: clouds[i % 4], x: art.range(-60, W + 60), y: art.range(60, 380), sp: art.range(5, 14), depth: art.range(0.5, 1) }));
     const streaks = Array.from({ length: 34 }, () => ({ x: Math.random() * W, y: 60 + Math.random() * 460, len: 20 + Math.random() * 40, sp: 0.6 + Math.random() * 0.8 }));
     const leaves = Array.from({ length: 14 }, () => ({ x: Math.random() * W, y: Math.random() * H, vy: 20 + Math.random() * 30, ph: Math.random() * 6.28, rot: Math.random() * 6, art: (Math.random() * 4) | 0 }));
 
     let clock = 0;
     let nextT = 3.2; // first arrival at the kite's height: nothing can touch it before
-    let nextGust = 9;
-    let wind = 0; // current gust push, in px of equilibrium shift
-    let windVis = 0;
+    const windVis = 0; // no gusts: the tail, leaves and streaks just drift in a light breeze
 
     // Everything is planned by the moment it reaches the kite's height, from the rng only.
     function schedule(until) {
@@ -652,11 +647,6 @@ export default {
         }
         nextT = T + gap;
       }
-      while (nextGust < until) {
-        const p = progress(nextGust, 60, 1.35);
-        gusts.push({ warn: nextGust - 1.3, start: nextGust, end: nextGust + windRng.range(1.1, lerp(1.4, 2)), dir: windRng.chance(0.5) ? -1 : 1, push: lerp(55, 120, p) * windRng.range(0.9, 1.1) });
-        nextGust += lerp(7, 3.2, p) * windRng.range(0.8, 1.2);
-      }
     }
 
     function place(o, t) {
@@ -669,20 +659,6 @@ export default {
       }
     }
 
-    function gustAt(t) {
-      let w = 0;
-      let warn = 0;
-      for (const gu of gusts) {
-        if (t >= gu.warn && t < gu.start) warn = gu.dir * ((t - gu.warn) / (gu.start - gu.warn));
-        if (t >= gu.start && t < gu.end) {
-          const env = Math.min(1, (t - gu.start) / 0.25, (gu.end - t) / 0.35);
-          w += gu.dir * gu.push * env;
-        }
-      }
-      return [w, warn];
-    }
-
-    let warnNow = 0;
 
     const game = {
       dead: false,
@@ -700,12 +676,8 @@ export default {
           threats.push(o);
         }
 
-        [wind, warnNow] = gustAt(t);
-        windVis += (wind / 100 - windVis) * Math.min(1, dt * 4);
-        for (let i = gusts.length - 1; i >= 0; i--) if (gusts[i].end < t) gusts.splice(i, 1);
-
         flyer.update(dt, dir);
-        kite.vx += (K * (flyer.x + wind - kite.x) - C * kite.vx) * dt;
+        kite.vx += (K * (flyer.x - kite.x) - C * kite.vx) * dt;
         kite.x += kite.vx * dt;
         if (kite.x < 26 || kite.x > W - 26) {
           kite.x = clamp(kite.x, 26, W - 26);
@@ -766,7 +738,7 @@ export default {
           if (c.x < -120) c.x = W + 120;
         }
         for (const s of streaks) {
-          s.x += (windVis * 520 + (warnNow || 0) * 60 + 8) * s.sp * dt;
+          s.x += (windVis * 520 + 8) * s.sp * dt;
           if (s.x > W + 60) s.x = -60;
           if (s.x < -60) s.x = W + 60;
         }
@@ -777,9 +749,6 @@ export default {
           if (l.y > H + 10) (l.y = -10), (l.x = Math.random() * W);
           if (l.x > W + 10) l.x = -10;
           if (l.x < -10) l.x = W + 10;
-        }
-        if (Math.abs(windVis) > 0.3 && Math.random() < 0.3) {
-          fx.burst(windVis > 0 ? -6 : W + 6, 150 + Math.random() * 350, { count: 1, speed: 380, life: 1.1, size: 2.4, angle: windVis > 0 ? 0 : Math.PI, spread: 0.25, colors: ['rgba(255,255,255,0.9)', '#f0b53a', '#e8792b'] });
         }
         fx.update(dt);
       },
@@ -808,8 +777,8 @@ export default {
 
         for (const c of cloudBank) drawSprite(g, c.art, c.x - pan * 0.05 * c.depth, c.y, { size: c.art.w * (0.7 + 0.4 * c.depth), alpha: 0.55 + 0.35 * c.depth });
 
-        // wind streaks: faint always, strong in a gust
-        const streakA = 0.05 + Math.min(0.4, Math.abs(windVis) * 0.5) + Math.abs(warnNow) * 0.08;
+        // faint wind streaks
+        const streakA = 0.05;
         g.strokeStyle = `rgba(255,255,255,${streakA})`;
         g.lineWidth = 1.4;
         g.beginPath();
@@ -915,54 +884,7 @@ export default {
 
         drawSprite(g, flyerArt, flyer.x, FLYER_Y, { size: 36, rot: flyer.lean * 0.1 });
 
-        // gust warning: chevrons on the side the wind comes from, pointing where it will blow
-        if (warnNow) {
-          const d = Math.sign(warnNow);
-          const k = Math.abs(warnNow);
-          const x0 = d > 0 ? 14 : W - 14;
-          const blink = 0.5 + 0.5 * Math.sin(clock * 14);
-          g.strokeStyle = `rgba(255,255,255,${0.35 + 0.6 * k * blink})`;
-          g.lineWidth = 3;
-          g.lineCap = 'round';
-          g.beginPath();
-          for (let j = 0; j < 3; j++) {
-            const x = x0 + d * j * 10;
-            for (const y of [KITE_Y - 40, KITE_Y + 30]) {
-              g.moveTo(x - d * 5, y - 8);
-              g.lineTo(x + d * 3, y);
-              g.lineTo(x - d * 5, y + 8);
-            }
-          }
-          g.stroke();
-          g.lineCap = 'butt';
-        }
-
         drawSprite(g, vignette, W / 2, H / 2);
-
-        // GUST sign on the side the wind comes from: blinks as a warning, stays while it blows
-        const blowing = Math.abs(windVis) > 0.15;
-        if (warnNow || blowing) {
-          const d = warnNow ? Math.sign(warnNow) : Math.sign(windVis);
-          const alpha = warnNow ? 0.65 + 0.35 * Math.sin(clock * 14) : Math.min(1, Math.abs(windVis) * 1.6) * 0.85;
-          const label = d > 0 ? 'GUST  ▸▸' : '◂◂  GUST';
-          g.font = `800 15px ${BODY_FONT}`;
-          const w = g.measureText(label).width + 26;
-          const x = d > 0 ? 10 : W - 10 - w;
-          const y = KITE_Y - 104;
-          g.globalAlpha = alpha;
-          g.fillStyle = 'rgba(10,28,64,0.78)';
-          g.strokeStyle = 'rgba(255,255,255,0.9)';
-          g.lineWidth = 1.5;
-          g.beginPath();
-          g.roundRect(x, y, w, 30, 15);
-          g.fill();
-          g.stroke();
-          g.fillStyle = '#ffffff';
-          g.textAlign = 'center';
-          g.textBaseline = 'middle';
-          g.fillText(label, x + w / 2, y + 16);
-          g.globalAlpha = 1;
-        }
       },
     };
     return game;
