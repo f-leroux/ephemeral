@@ -55,9 +55,7 @@ export function renderResults({ els, dayNum, game, result, stats }) {
     els.percentile.textContent = "You're the first to play today.";
   } else {
     const pct = Math.round((stats.beaten / (stats.total - 1)) * 100);
-    const survivors = stats.buckets[SQUARES];
-    els.percentile.textContent =
-      `You outlasted ${pct}% of ${stats.total.toLocaleString()} players. ` +
-      `${survivors} survived (${Math.round((survivors / stats.total) * 100)}%).`;
+    const survived = Math.round((stats.buckets[SQUARES] / stats.total) * 100);
+    els.percentile.textContent = `You outlasted ${pct}% of players. ${survived}% survived all 60 seconds.`;
   }
 }
