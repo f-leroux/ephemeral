@@ -94,4 +94,4 @@ The daily routine follows [`DAILY.md`](DAILY.md).
 
 ## License
 
-Ephemeral is free software under the [GNU Affero General Public License v3.0 or later](LICENSE). Its music runs on [Strudel](https://strudel.cc), which is AGPL-3.0-or-later too. Because players use the game over the network, the site links to this source code from the home screen, as the AGPL requires.
+Ephemeral is free software under the [GNU Affero General Public License v3.0 or later](LICENSE). Its music runs on [Strudel](https://strudel.cc), which is AGPL-3.0-or-later too. Because players use the game over the network, the site links to this source code from the Past games screen, as the AGPL requires.
