@@ -216,20 +216,20 @@ export function createSfx({ silent = false } = {}) {
 
 // Each cue is a list of voices [spec, { pitch, delay, volume }], picked on the soundboard.
 const bells = { wave: 'sine', freq: 523.25, attack: 0.003, sustain: 0.02, release: 1.8, volume: 0.18 };
-const chime = { wave: 'sine', freq: 523.25, attack: 0.003, sustain: 0.05, release: 1.2, volume: 0.2 };
+const pop = { wave: 'triangle', freq: 523.25, attack: 0.003, sustain: 0.04, release: 0.3, volume: 0.35, lowpass: 3000 };
 const heart = { wave: 'sine', freq: 120, freqEnd: 80, attack: 0.003, sustain: 0.03, release: 0.15, volume: 0.55 };
 const tadaG = { wave: 'saw', freq: 392, sustain: 0.08, release: 0.15, volume: 0.12, lowpass: 1500 };
 const tadaC = { wave: 'saw', freq: 523.25, sustain: 0.3, release: 0.8, volume: 0.12, lowpass: 1500 };
 const CUES = {
-  // intro: a pure tone gliding up, then bells as the title snaps together
-  swell: [[{ wave: 'sine', freq: 110, freqEnd: 330, attack: 1.2, sustain: 0.1, release: 0.8, volume: 0.18, vibrato: 0.004, vibratoRate: 5 }, {}]],
+  // intro: a gentle breeze, then bells as the title snaps together
+  swell: [[{ wave: 'noise', freq: 250, freqEnd: 900, attack: 1.4, sustain: 0.2, release: 1.3, volume: 0.14, lowpass: 600 }, {}]],
   chord: [1, 1.26, 1.5, 2].map((p, i) => [bells, { pitch: p, delay: i * 0.09 }]),
-  // 3-2-1: a marimba note (with a faint high overtone), then GO: a ringing chime
+  // 3-2-1: a marimba note (with a faint high overtone), then GO: an octave pop, low then high
   beep: [
     [{ wave: 'sine', freq: 523.25, attack: 0.002, sustain: 0.01, release: 0.35, volume: 0.4 }, {}],
     [{ wave: 'sine', freq: 2093, attack: 0.001, sustain: 0.005, release: 0.05, volume: 0.08 }, {}],
   ],
-  go: [1, 1.5, 2].map((p, i) => [chime, { pitch: p, delay: i * 0.02 }]),
+  go: [1, 2].map((p, i) => [pop, { pitch: p, delay: i * 0.08 }]),
   // death: glass breaking
   death: [
     [{ wave: 'noise', freq: 6000, freqEnd: 3000, attack: 0.001, sustain: 0.02, release: 0.25, volume: 0.25 }, {}],
