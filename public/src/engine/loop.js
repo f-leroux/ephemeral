@@ -21,8 +21,8 @@ import { createRng } from './rng.js';
 import { createInput } from './input.js';
 import { fitCanvas, DISPLAY_FONT, BODY_FONT } from './stage.js';
 import { createParticles, wrapText, easeOutCubic } from './kit.js';
-import { createSfx, engineSfx, playFanfare, playGo, suspendAudio } from './sound.js';
-import { playSong, stopSong, musicReady } from './music.js';
+import { createSfx, playCue, suspendAudio } from './sound.js';
+import { playSong, stopSong } from './music.js';
 
 export const W = 360;
 export const H = 640;
@@ -41,10 +41,8 @@ export function runGame({ canvas, game, seed, onProgress, music = null }) {
   return new Promise((resolve) => {
     const rng = createRng(seed);
     // Games have music instead of sound effects: their sfx kit is always silent. The engine's own
-    // cues (countdown, GO, death, fanfare) still play; the final-seconds ticks only without music.
-    const withMusic = !!music && musicReady();
+    // cues (countdown, GO, final-seconds heartbeat, death, fanfare) still play.
     const sfx = createSfx({ silent: true });
-    const beeps = engineSfx();
     const inst = game.create({ rng, W, H, duration: DURATION, sfx });
     const input = createInput(window);
     const confetti = createParticles();
@@ -94,13 +92,13 @@ export function runGame({ canvas, game, seed, onProgress, music = null }) {
 
       if (phase === 'countdown') {
         const n = Math.ceil(countdown);
-        if (n !== lastBeep && beeps) beeps.kit.play(beeps.beep);
+        if (n !== lastBeep) playCue('beep');
         lastBeep = n;
         countdown -= dt;
         if (countdown <= 0) {
           phase = 'play';
           acc = 0;
-          playGo();
+          playCue('go');
           playSong(music, t); // from the start, or where it left off after a pause
         }
       } else if (phase === 'play') {
@@ -114,7 +112,7 @@ export function runGame({ canvas, game, seed, onProgress, music = null }) {
             phase = 'dying';
             stopSong();
             sfx.stopLoops(0.25);
-            if (beeps) beeps.kit.play(beeps.thud);
+            playCue('death');
             break;
           }
           if (t >= DURATION) {
@@ -122,7 +120,7 @@ export function runGame({ canvas, game, seed, onProgress, music = null }) {
             phase = 'survived';
             stopSong();
             sfx.stopLoops(0.4);
-            playFanfare();
+            playCue('fanfare');
             confetti.burst(W / 2, H * 0.42, {
               count: 140,
               speed: 420,
@@ -137,7 +135,7 @@ export function runGame({ canvas, game, seed, onProgress, music = null }) {
         // the last ten seconds tick, rising in pitch
         if (phase === 'play' && Math.floor(t) > lastTick) {
           lastTick = Math.floor(t);
-          if (beeps && !withMusic) beeps.kit.play(beeps.tick, { pitch: 1 + (lastTick - 50) * 0.06 });
+          playCue('tick', { pitch: 1 + (lastTick - 50) * 0.06 });
         }
         if (onProgress && t - lastSaved >= 0.25) {
           lastSaved = t;

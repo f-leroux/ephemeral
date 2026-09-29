@@ -4,7 +4,7 @@
 
 import { fitCanvas, DISPLAY_FONT } from './stage.js';
 import { clamp, lerp } from './kit.js';
-import { engineSfx } from './sound.js';
+import { playCue } from './sound.js';
 
 const INTRO_BG = [7, 7, 12];
 const CHAOS_COLORS = ['#ff6b8b', '#7ee0ff', '#ffd36b', '#9d7bff', '#6bffb8', '#ff9f5a', '#f3f0ea'];
@@ -79,17 +79,16 @@ export function playIntro({ canvas, game, labelEl, taglineEl }) {
     labelEl.classList.remove('show');
     taglineEl.classList.remove('show');
     const start = performance.now();
-    const sounds = engineSfx();
     let chimed = false;
     let raf = 0;
-    sounds?.kit.play(sounds.whoosh);
+    playCue('swell');
 
     function frame(now) {
       const T = (now - start) / 1000;
-      // a warm C major chord (with a low C underneath) as the title snaps together
-      if (!chimed && T > 2.1 && sounds) {
+      // bells as the title snaps together
+      if (!chimed && T > 2.1) {
         chimed = true;
-        [0.5, 1, 1.26, 1.5].forEach((p, i) => sounds.kit.play(sounds.pad, { pitch: p, delay: i * 0.06, volume: p < 1 ? 0.9 : 0.6 }));
+        playCue('chord');
       }
       const { g, cw: w, ch: h, dpr } = fitCanvas(canvas);
       g.setTransform(dpr, 0, 0, dpr, 0, 0);

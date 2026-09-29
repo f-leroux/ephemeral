@@ -1,7 +1,7 @@
 // Procedural sound effects: every sound is a small settings object, synthesized in JS
 // into an AudioBuffer once, then played as often as needed. No audio files.
 //
-// Only the engine uses these now (intro, countdown, GO, ticks, death, fanfare). Games have a
+// Only the engine uses these now (intro, countdown, GO, ticks, death, fanfare: see playCue). Games have a
 // Strudel song instead of sound effects (see music.js); the `sfx` kit they receive is silent.
 //
 // A sound spec (all optional):
@@ -157,11 +157,11 @@ export function createSfx({ silent = false } = {}) {
       return { spec, buffer: ctx ? toBuffer(synthesize(spec, ctx.sampleRate)) : null };
     },
 
-    play(sound, { volume = 1, pitch = 1, pan = 0, delay = 0 } = {}) {
+    play(sound, { volume = 1, pitch = 1, pan = 0, delay = 0, force = false } = {}) {
       if (!ctx || !sound?.buffer || muted || silent) return;
-      // the same sound can't retrigger more than ~25 times a second
+      // the same sound can't retrigger more than ~25 times a second (unless it's a chord: force)
       const now = ctx.currentTime;
-      if (!delay && now - (lastPlayed.get(sound) ?? -1) < 0.04) return;
+      if (!delay && !force && now - (lastPlayed.get(sound) ?? -1) < 0.04) return;
       lastPlayed.set(sound, now);
       const src = ctx.createBufferSource();
       src.buffer = sound.buffer;
@@ -214,38 +214,52 @@ export function createSfx({ silent = false } = {}) {
 
 // ---------- the engine's own sounds (same every day) ----------
 
-let engineSounds = null;
-export function engineSfx() {
-  if (engineSounds || !ctx) return engineSounds;
-  const kit = createSfx();
-  const s = {
-    kit,
-    // countdown: a soft plucked G4 for 3-2-1, then GO strums a C major chord that resolves it
-    beep: kit.sound({ wave: 'triangle', freq: 392, attack: 0.004, sustain: 0.04, release: 0.3, volume: 0.45, lowpass: 1100 }),
-    pluck: kit.sound({ wave: 'triangle', freq: 261.63, attack: 0.004, sustain: 0.1, release: 0.7, volume: 0.4, lowpass: 1300 }),
-    tick: kit.sound({ wave: 'sine', freq: 1200, attack: 0.001, sustain: 0.01, release: 0.05, volume: 0.25 }),
-    thud: kit.sound({ wave: 'sine', freq: 140, freqEnd: 40, sustain: 0.05, release: 0.45, volume: 0.9 }),
-    whoosh: kit.sound({ wave: 'noise', freq: 400, freqEnd: 1600, attack: 1.1, sustain: 0.2, release: 0.9, volume: 0.16, lowpass: 900 }),
-    shimmer: kit.sound({ wave: 'triangle', freq: 1320, sustain: 0.05, release: 0.6, volume: 0.25, vibrato: 0.01 }),
-    // a warm, soft note for the intro chord: mellow filtered triangle, slow swell, long tail
-    pad: kit.sound({ wave: 'triangle', freq: 261.63, attack: 0.15, sustain: 0.35, release: 1.6, volume: 0.3, lowpass: 700, vibrato: 0.003, vibratoRate: 5 }),
-    note: kit.sound({ wave: 'square', freq: 523.25, sustain: 0.1, release: 0.3, volume: 0.35, lowpass: 2500 }),
-  };
-  engineSounds = s;
-  return s;
-}
+// Each cue is a list of voices [spec, { pitch, delay, volume }], picked on the soundboard.
+const bells = { wave: 'sine', freq: 523.25, attack: 0.003, sustain: 0.02, release: 1.8, volume: 0.18 };
+const chime = { wave: 'sine', freq: 523.25, attack: 0.003, sustain: 0.05, release: 1.2, volume: 0.2 };
+const heart = { wave: 'sine', freq: 120, freqEnd: 80, attack: 0.003, sustain: 0.03, release: 0.15, volume: 0.55 };
+const tadaG = { wave: 'saw', freq: 392, sustain: 0.08, release: 0.15, volume: 0.12, lowpass: 1500 };
+const tadaC = { wave: 'saw', freq: 523.25, sustain: 0.3, release: 0.8, volume: 0.12, lowpass: 1500 };
+const CUES = {
+  // intro: a pure tone gliding up, then bells as the title snaps together
+  swell: [[{ wave: 'sine', freq: 110, freqEnd: 330, attack: 1.2, sustain: 0.1, release: 0.8, volume: 0.18, vibrato: 0.004, vibratoRate: 5 }, {}]],
+  chord: [1, 1.26, 1.5, 2].map((p, i) => [bells, { pitch: p, delay: i * 0.09 }]),
+  // 3-2-1: a marimba note (with a faint high overtone), then GO: a ringing chime
+  beep: [
+    [{ wave: 'sine', freq: 523.25, attack: 0.002, sustain: 0.01, release: 0.35, volume: 0.4 }, {}],
+    [{ wave: 'sine', freq: 2093, attack: 0.001, sustain: 0.005, release: 0.05, volume: 0.08 }, {}],
+  ],
+  go: [1, 1.5, 2].map((p, i) => [chime, { pitch: p, delay: i * 0.02 }]),
+  // death: glass breaking
+  death: [
+    [{ wave: 'noise', freq: 6000, freqEnd: 3000, attack: 0.001, sustain: 0.02, release: 0.25, volume: 0.25 }, {}],
+    [{ wave: 'sine', freq: 1760, freqEnd: 880, sustain: 0.02, release: 0.5, volume: 0.12 }, {}],
+    [{ wave: 'sine', freq: 2349, freqEnd: 1175, sustain: 0.02, release: 0.5, volume: 0.08 }, {}],
+  ],
+  // surviving: ta… da!
+  fanfare: [
+    ...[1, 1.26, 1.5].map((p) => [tadaG, { pitch: p }]),
+    ...[1, 1.26, 1.5, 2].map((p) => [tadaC, { pitch: p, delay: 0.22 }]),
+  ],
+  // the last ten seconds without music: a heartbeat, rising
+  tick: [
+    [heart, {}],
+    [heart, { delay: 0.14, volume: 0.8 }],
+  ],
+};
 
-// GO: a quick strum of C major (C4 E4 G4 C5).
-export function playGo() {
-  const s = engineSfx();
-  if (!s) return;
-  [1, 1.26, 1.5, 2].forEach((p, i) => s.kit.play(s.pluck, { pitch: p, delay: i * 0.025, volume: p === 2 ? 0.6 : 0.8 }));
-}
+let engineKit = null;
+let cueSounds = null;
 
-// A major arpeggio for surviving all 60 seconds.
-export function playFanfare() {
-  const s = engineSfx();
-  if (!s) return;
-  [1, 1.26, 1.5, 2, 2.52, 3].forEach((p, i) => s.kit.play(s.note, { pitch: p, delay: i * 0.09, volume: 0.8 }));
-  s.kit.play(s.shimmer, { pitch: 1.5, delay: 0.55 });
+// Plays an engine cue. `at` delays the whole cue; `pitch` shifts it (the final ticks rise).
+export function playCue(name, { at = 0, pitch = 1 } = {}) {
+  if (!ctx) return;
+  if (!engineKit) {
+    engineKit = createSfx();
+    cueSounds = new Map();
+  }
+  for (const [spec, { pitch: p = 1, delay = 0, volume = 1 } = {}] of CUES[name] ?? []) {
+    if (!cueSounds.has(spec)) cueSounds.set(spec, engineKit.sound(spec));
+    engineKit.play(cueSounds.get(spec), { pitch: p * pitch, delay: at + delay, volume, force: true });
+  }
 }
