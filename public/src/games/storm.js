@@ -1,6 +1,6 @@
 // Storm Rider — a lone motorbike on a forest road at midnight, in a thunderstorm. The headlight
-// only reaches a short way; every lightning strike lights up the whole road for a heartbeat, and
-// you have to remember where the rocks, fallen logs and startled deer were before the dark comes back.
+// only reaches a few metres; every lightning strike lights up the whole road for a heartbeat, then
+// it's pitch black again and you have to remember where the rocks, fallen logs and deer were.
 
 import {
   createMover,
@@ -415,9 +415,9 @@ function paintDarkness(W, H) {
       g.closePath();
       g.fill();
     };
-    cone(95, 270, 0.35);
-    cone(78, 255, 0.45);
-    cone(62, 240, 0.7);
+    cone(70, 160, 0.35);
+    cone(58, 148, 0.45);
+    cone(46, 136, 0.7);
     const pool = g.createRadialGradient(0, by, 2, 0, by, 58);
     pool.addColorStop(0, 'rgba(0,0,0,0.75)');
     pool.addColorStop(1, 'rgba(0,0,0,0)');
@@ -713,22 +713,21 @@ export default {
         const by = BIKE_Y + (down ? tumble * 20 : 0);
         drawSprite(g, bikeArt, bx, by, { rot: down ? tumble * 5 : bike.lean * 0.22 });
 
-        // the night
-        const dark = lerp(0.86, 0.95, progress(Math.min(clock, 60), 60, 1));
-        drawSprite(g, darkness, bike.x, H / 2, { alpha: dark * (1 - 0.92 * level) });
+        // the night: nothing shows through it but the headlight and the lightning
+        drawSprite(g, darkness, bike.x, H / 2, { alpha: 1 - 0.92 * level });
 
         g.globalCompositeOperation = 'lighter';
         if (!down) {
-          drawSprite(g, lampGlow, bike.x, BIKE_Y - 110, { size: 230, alpha: 0.13 });
+          drawSprite(g, lampGlow, bike.x, BIKE_Y - 80, { size: 170, alpha: 0.13 });
           drawSprite(g, lampGlow, bike.x, BIKE_Y - 18, { size: 40, alpha: 0.7 });
           drawSprite(g, tailGlow, bike.x, BIKE_Y + 18, { size: 30, alpha: 0.6 + 0.15 * Math.sin(clock * 9) });
         }
 
-        // afterimages of what the last flash showed
+        // a pale-blue rim on everything the flash catches, gone with the flash
         for (const o of obstacles) {
           const y = yOf(o);
           if (y < -40) continue;
-          const mem = 0.75 * clamp(1 - (clock - o.lit) / lerp(1.5, 0.9, progress(Math.min(clock, 60), 60, 1)), 0, 1);
+          const mem = clock - o.lit < 0.6 ? 0.75 * level : 0;
           if (mem > 0.02) {
             if (o.flip) {
               g.save();
@@ -738,11 +737,12 @@ export default {
               g.restore();
             } else drawSprite(g, ghosts.get(o.sprite), o.x, y, { alpha: mem });
           }
-          // deer eyes shine in any light
+          // deer eyes shine back at the lightning and the headlight, never in the dark
           if (o.kind === 'deer') {
             const ex = o.x + (o.flip ? -19 : 19);
-            const blink = Math.sin(clock * 2.3 + o.x) > 0.97 ? 0.2 : 1;
-            for (const s of [-1.8, 1.8]) drawSprite(g, eyeGlow, ex + s, y + 6, { size: 12, alpha: 0.9 * blink });
+            const lamp = down ? 0 : clamp((y - (BIKE_Y - 160)) / 40, 0, 1) * clamp((80 - Math.abs(ex - bike.x)) / 40, 0, 1);
+            const shine = Math.max(level, lamp);
+            if (shine > 0.02) for (const s of [-1.8, 1.8]) drawSprite(g, eyeGlow, ex + s, y + 6, { size: 12, alpha: 0.9 * shine });
           }
         }
 
