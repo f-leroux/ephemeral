@@ -486,7 +486,7 @@ export default {
     const vignette = vignetteSprite(W, H, 0.6, '0,0,0');
 
     // how far the road has scrolled at any moment: depends only on time, so it can be planned ahead
-    const speedAt = (t) => lerp(255, 470, progress(t, 60, 1.25));
+    const speedAt = (t) => lerp(280, 530, progress(t, 60, 1.2));
     const distTable = [0];
     for (let i = 1; i <= 64 * 120; i++) distTable.push(distTable[i - 1] + speedAt((i - 0.5) * STEP) * STEP);
     const distAt = (t) => {
@@ -517,7 +517,7 @@ export default {
       while (nextFlash < until) {
         flashes.push(nextFlash);
         const cap = (0.62 * BIKE_Y) / speedAt(nextFlash);
-        nextFlash += Math.min(cap, sky.range(0.9, 1.5));
+        nextFlash += Math.min(cap, sky.range(1.1, 1.8));
       }
     }
     function flashLevel(t) {
@@ -582,10 +582,10 @@ export default {
       while (lastT < until) {
         const first = lastT === 0;
         const p = progress(lastT, 60, 1.3);
-        const dT = first ? 2.6 : lerp(0.8, 0.4, p) * rng.range(0.85, 1.15);
+        const dT = first ? 2.6 : lerp(0.68, 0.32, p) * rng.range(0.85, 1.15);
         const T = lastT + dT;
-        if (rng.chance(lerp(0.35, 0.55, p))) heading = -heading;
-        const ratio = rng.range(lerp(0.15, 0.4, p), lerp(0.55, 0.8, p));
+        if (rng.chance(lerp(0.4, 0.6, p))) heading = -heading;
+        const ratio = rng.range(lerp(0.25, 0.5, p), lerp(0.65, 0.9, p));
         let X = lastX + heading * ratio * REACH * dT;
         if (X < 72 || X > 288) {
           heading = -heading;
@@ -599,15 +599,15 @@ export default {
 
         if (!first) {
           const roll = rng.next();
-          if (T > 5 && roll < lerp(0.18, 0.4, p)) {
+          if (T > 4 && roll < lerp(0.22, 0.42, p)) {
             // fallen trees: from one verge, or from both late on, leaving the safe line open
-            const both = T > 22 && rng.chance(0.45);
+            const both = T > 15 && rng.chance(0.55);
             const sides = both ? [-1, 1] : [rng.chance(0.5) ? -1 : 1];
             for (const side of sides) {
               const k = logFits(side < 0 ? lo - (ROAD_L - 6) : ROAD_R + 6 - hi);
               if (k >= 0) addLog(T, side, k);
             }
-          } else if (T > 9 && roll < lerp(0.18, 0.4, p) + 0.12) {
+          } else if (T > 7 && roll < lerp(0.22, 0.42, p) + 0.14) {
             for (let tries = 0; tries < 6; tries++) {
               const x = rng.range(ROAD_L + 24, ROAD_R - 24);
               if (!safe(x, 20)) continue;
@@ -615,7 +615,7 @@ export default {
               break;
             }
           } else {
-            const n = Math.round(lerp(1.4, 3.2, p) + rng.range(-0.5, 0.5));
+            const n = Math.round(lerp(2, 3.8, p) + rng.range(-0.5, 0.5));
             for (let k = 0, tries = 0; k < n && tries < 12; tries++) {
               const big = rng.chance(0.35);
               const x = rng.range(ROAD_L + 16, ROAD_R - 16);
@@ -728,7 +728,7 @@ export default {
         for (const o of obstacles) {
           const y = yOf(o);
           if (y < -40) continue;
-          const mem = 0.75 * clamp(1 - (clock - o.lit) / 1.7, 0, 1);
+          const mem = 0.75 * clamp(1 - (clock - o.lit) / lerp(1.5, 0.9, progress(Math.min(clock, 60), 60, 1)), 0, 1);
           if (mem > 0.02) {
             if (o.flip) {
               g.save();
