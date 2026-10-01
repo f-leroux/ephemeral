@@ -21,7 +21,7 @@ const NOSE_HALF = 19; // half width of the nose's sweet zone (the ball's radius 
 const MAX_ANGLE = 0.22; // how far an edge hit tips the bounce sideways (radians)
 const KEEP_VX = 0.15; // how much sideways speed a ball keeps through a bounce
 const WALL = 10; // the pool's side walls, inset from the screen edge
-const G = 560;
+const G = 380;
 
 const RISE = 380; // every bounce climbs this high, so the balls keep a steady juggling rhythm
 // each new ball is smaller, so it has to land closer to the middle of the nose
@@ -497,7 +497,7 @@ export default {
     const fx = createParticles();
     const ripples = []; // cosmetic rings on the water: { x, age, size }
 
-    const gScale = (t) => lerp(1, 1.35, progress(t, 60, 1.3));
+    const gScale = (t) => lerp(1, 1.25, progress(t, 60, 1.3));
 
     // where each ball will be tossed in from (decided up front, so it never depends on play)
     const tosses = TOSSES.map((T, i) => ({ T, i, x: i === 0 ? W / 2 : rng.range(110, W - 110), at: T + WARN, planned: i === 0, done: false }));
