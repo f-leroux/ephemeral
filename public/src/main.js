@@ -21,6 +21,7 @@ import { unlockAudio, isMuted, setMuted } from './engine/sound.js';
 import { startPractice } from './engine/practice.js';
 import { preloadMusic, unlockMusic, musicEnabled, setMusicEnabled, stopSong } from './engine/music.js';
 import { CHANNEL } from './build.js';
+import { feedbackUrl } from './engine/feedback.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -110,7 +111,13 @@ function setBanner() {
     banner.textContent = `From the archive: ${game.emoji} ${game.title}. Play as often as you like; runs don't count.`;
   } else if (MODE === 'preview') {
     const others = upcoming.filter((d) => d !== DAY);
-    banner.replaceChildren(`Preview: ${game.emoji} ${game.title}, not live yet. Runs aren't recorded.`);
+    banner.replaceChildren(`Preview: ${game.emoji} ${game.title}, not live yet. Runs aren't recorded. `);
+    const fb = document.createElement('a');
+    fb.href = feedbackUrl({ dayNum: DAY_NUM, title: game.title, date: DAY });
+    fb.target = '_blank';
+    fb.rel = 'noopener';
+    fb.textContent = 'Give feedback';
+    banner.append(fb, '.');
     for (const d of others) {
       const a = document.createElement('a');
       a.href = `?preview=${d}`;
@@ -157,6 +164,9 @@ async function showResults(result, stats) {
   $('again-btn').hidden = !replayable;
   $('share-btn').hidden = MODE === 'archive' || MODE === 'preview';
   $('res-footnote').hidden = replayable;
+  const fb = $('feedback-btn');
+  fb.hidden = MODE !== 'preview';
+  if (MODE === 'preview') fb.href = feedbackUrl({ dayNum: DAY_NUM, title: game.title, date: DAY, run: result });
   ambient(true);
   show('results');
 }
