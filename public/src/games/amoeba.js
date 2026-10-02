@@ -327,7 +327,7 @@ function paintBrute(rng) {
   });
 }
 
-// rings that say "bigger than you" (red, spiky) and "you can eat this" (soft green)
+// the spiky red ring that says "bigger than you"
 function paintRing(color, spiky) {
   return makeSprite(S + 16, S + 16, (g) => {
     const R = ART_R + 5;
@@ -357,7 +357,7 @@ export default {
   id: 'amoeba',
   title: 'Hungry Amoeba',
   emoji: '🦠',
-  tagline: 'Swallow every cell smaller than you and dodge the bigger, red-ringed ones. You shrink when you go hungry, so keep eating.',
+  tagline: 'Swallow every cell smaller than you and dodge the bigger ones, which glow red. You shrink when you go hungry, so keep eating.',
   colors: { bg: '#f1dfb4', fg: '#3b1d4a', accent: '#1fbf8f' },
 
   // Squelchy electro breakbeat at 132 BPM in B♭ minor (B♭m – G♭ – A♭ – F): a broken kick, snare
@@ -401,9 +401,19 @@ export default {
     const snackArt = [paintRod(art), paintRod(art), paintCoccus()];
     const cellArt = [paintCell(art, 265), paintCell(art, 290), paintCell(art, 320), paintDiatom(), paintCiliate(art)];
     const bruteArt = [paintBrute(art), paintBrute(art)];
-    const redRing = paintRing('rgba(225,30,60,0.9)', true);
-    const greenRing = paintRing('rgba(20,170,110,0.9)', false);
+    const redRing = paintRing('rgba(205,15,45,1)', true);
     const dangerHalo = glowSprite('rgba(220,20,50,0.6)', 50); // a red stain under everything too big to eat
+    // a solid red wash laid over the cell itself, so anything too big to eat turns plainly red
+    const dangerTint = makeSprite(S, S, (g) => {
+      const f = g.createRadialGradient(0, 0, ART_R * 0.2, 0, 0, ART_R * 1.05);
+      f.addColorStop(0, 'rgba(255,60,70,0.55)');
+      f.addColorStop(0.75, 'rgba(210,10,40,0.75)');
+      f.addColorStop(1, 'rgba(150,0,25,0)');
+      g.fillStyle = f;
+      g.beginPath();
+      g.arc(0, 0, ART_R * 1.05, 0, Math.PI * 2);
+      g.fill();
+    });
     const meGlow = glowSprite('rgba(60,255,190,1)', 50);
     const vignette = vignetteSprite(W, H, 0.7, '60,30,10');
 
@@ -476,10 +486,10 @@ export default {
         X = clamp(X, 60, W - 60);
 
         // snacks along the lane
-        const snacks = rng.chance(lerp(0.85, 0.3, p)) ? (p < 0.4 ? rng.int(1, 2) : 1) : 0;
+        const snacks = rng.chance(lerp(0.85, 0.1, p)) ? (p < 0.25 ? rng.int(1, 2) : 1) : 0;
         for (let k = 0; k < snacks; k++) add(T + rng.range(-0.08, 0.08), X + rng.range(-24, 24), rng.range(3.5, 5.5), 'snack', rng.pick(snackArt));
         // and a few more scattered around
-        if (rng.chance(lerp(0.4, 0.15, p))) {
+        if (rng.chance(lerp(0.4, 0.06, p))) {
           const x = rng.range(20, W - 20);
           add(T, x, rng.range(3.5, 5.5), 'snack', rng.pick(snackArt));
         }
@@ -499,13 +509,14 @@ export default {
         }
 
         if (T > 3) {
-          const n = Math.round(lerp(1.2, 2.8, p) + rng.range(-0.5, 0.5));
-          for (let k = 0, tries = 0; k < n && tries < 14; tries++) {
+          // fewer and fewer small cells, more and more big ones crowding the path
+          const n = Math.round(lerp(1.3, 3.6, p) + rng.range(-0.5, 0.5));
+          for (let k = 0, tries = 0; k < n && tries < 18; tries++) {
             const roll = rng.next();
             let r;
             let kind = 'cell';
-            if (roll < lerp(0.5, 0.3, p)) r = rng.range(6.5, 11);
-            else if (roll < lerp(0.85, 0.65, p)) r = rng.range(11, 19);
+            if (roll < lerp(0.45, 0.12, p)) r = rng.range(6.5, 11);
+            else if (roll < lerp(0.82, 0.5, p)) r = rng.range(11, 19);
             else {
               kind = 'brute';
               r = T > 18 && rng.chance(0.4) ? rng.range(30, 42) : rng.range(19, 30);
@@ -564,7 +575,7 @@ export default {
 
         // hunger: you're always shrinking, faster later and faster when big
         const p = progress(t, 60, 1.2);
-        if (t > 0.5) me.r -= (0.22 + 0.06 * me.r) * lerp(1, 1.6, p) * dt;
+        if (t > 0.5) me.r -= (0.18 + 0.05 * me.r) * lerp(1, 1.5, p) * dt;
         me.gulp = Math.max(0, me.gulp - dt * 4);
 
         for (let i = cells.length - 1; i >= 0; i--) {
@@ -647,17 +658,16 @@ export default {
           const y = yOf(o);
           if (y < -60 || y > H + 60) continue;
           const size = ((S * o.r) / ART_R) * (o.kind === 'snack' ? 1.5 : 1); // snacks are drawn a little larger than they bite
+          const pulse = 1 + 0.04 * Math.sin(t * 7 + o.ph);
           if (o.kind !== 'snack') {
-            const pulse = 1 + 0.04 * Math.sin(t * 7 + o.ph);
             if (o.ring > 0.03) {
-              drawSprite(g, dangerHalo, o.x, y, { size: o.r * 4.4 * pulse, alpha: o.ring * 0.75 });
+              drawSprite(g, dangerHalo, o.x, y, { size: o.r * 4.8 * pulse, alpha: o.ring * 0.85 });
               drawSprite(g, redRing, o.x, y, { size: ((S + 16) * o.r * pulse) / ART_R, alpha: o.ring, rot: t * 0.6 + o.ph });
             }
-            if (o.ring < 0.97) drawSprite(g, greenRing, o.x, y, { size: ((S + 16) * o.r) / ART_R, alpha: 1 - o.ring, rot: -t * 0.8 });
           }
           drawSprite(g, o.sprite, o.x, y, { size, rot: o.rot + o.spin * t });
-          // too big to eat: the cell itself blushes red too, so it reads at a glance
-          if (o.kind !== 'snack' && o.ring > 0.03) drawSprite(g, dangerHalo, o.x, y, { size: o.r * 2.4, alpha: o.ring * 0.45 });
+          // too big to eat: the cell itself turns red, so it reads at a glance; edible ones stay unmarked
+          if (o.kind !== 'snack' && o.ring > 0.03) drawSprite(g, dangerTint, o.x, y, { size: ((S * o.r) / ART_R) * pulse, alpha: o.ring });
         }
 
         for (const s of swallowed) {
