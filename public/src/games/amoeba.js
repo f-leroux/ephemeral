@@ -357,7 +357,7 @@ export default {
   id: 'amoeba',
   title: 'Hungry Amoeba',
   emoji: '🦠',
-  tagline: 'Swallow every cell smaller than you and dodge the bigger ones, which glow red. You shrink when you go hungry, so keep eating.',
+  tagline: 'Swallow every cell smaller than you and dodge the bigger ones, which glow red and come after you. You shrink when you go hungry, so keep eating.',
   colors: { bg: '#f1dfb4', fg: '#3b1d4a', accent: '#1fbf8f' },
 
   // Squelchy electro breakbeat at 132 BPM in B♭ minor (B♭m – G♭ – A♭ – F): a broken kick, snare
@@ -456,7 +456,13 @@ export default {
         spin: rng.range(-0.8, 0.8),
         edible: kind === 'snack',
         ring: 0,
+        // how it moves on its own (set when planned, so it's the same for everyone):
+        // giants hunt you, some cells swim across the slide, and meals try to get away
+        vx: 0,
+        hunt: 0,
+        flee: 0,
       });
+      return cells[cells.length - 1];
     }
     function fits(T, x, r) {
       const s = distAt(T);
@@ -503,7 +509,8 @@ export default {
           for (const sd of [side, -side]) {
             const x = X + sd * (r + CLEAR + 6 + drift + rng.range(0, 14));
             if (x < r + 4 || x > W - r - 4 || !fits(T, x, r)) continue;
-            add(T, x, r, 'cell', rng.pick(cellArt));
+            const meal = add(T, x, r, 'cell', rng.pick(cellArt));
+            meal.flee = rng.range(lerp(18, 30, p), lerp(30, 55, p));
             break;
           }
         }
@@ -526,7 +533,10 @@ export default {
             const gap = r + CLEAR + 6 + drift;
             if (Math.abs(x - X) < gap || Math.abs(x - lastX) < gap) continue;
             if (!fits(T, x, r)) continue;
-            add(T, x, r, kind, kind === 'brute' ? rng.pick(bruteArt) : rng.pick(cellArt));
+            const o = add(T, x, r, kind, kind === 'brute' ? rng.pick(bruteArt) : rng.pick(cellArt));
+            if (kind === 'brute') o.hunt = rng.range(lerp(12, 50, p), lerp(25, 80, p));
+            else if (T > 8 && rng.chance(lerp(0.2, 0.6, p))) o.vx = (rng.chance(0.5) ? 1 : -1) * rng.range(lerp(15, 30, p), lerp(30, 65, p));
+            if (r < 11) o.flee = rng.chance(lerp(0.3, 0.7, p)) ? rng.range(15, lerp(30, 50, p)) : 0;
             k++;
           }
         }
@@ -585,8 +595,28 @@ export default {
             cells.splice(i, 1);
             continue;
           }
-          o.x = o.x0 + o.wa * Math.sin(o.wf * t + o.ph);
           o.edible = o.r < me.r * EAT;
+          // cells that swim: drifters cross the slide and bounce off its edges; giants that are
+          // too big for you creep towards you, and meals edge away once you could eat them.
+          // Nobody steers in the last stretch above you, so the final dodge or bite is fair.
+          const steering = y > -20 && y < PLAYER_Y - 130;
+          if (o.vx) {
+            o.x0 += o.vx * dt;
+            if (o.x0 < o.r + 4 || o.x0 > W - o.r - 4) {
+              o.x0 = clamp(o.x0, o.r + 4, W - o.r - 4);
+              o.vx = -o.vx;
+            }
+          }
+          o.chase = 0;
+          if (steering && o.hunt && !o.edible) {
+            o.chase = clamp((me.x - o.x0) / 30, -1, 1);
+            o.x0 += o.chase * o.hunt * dt;
+          } else if (steering && o.flee && o.edible) {
+            const away = o.x0 < me.x ? -1 : 1;
+            if (Math.abs(o.x0 - me.x) < 140) o.x0 += away * o.flee * dt;
+          }
+          o.x0 = clamp(o.x0, o.r + 4, W - o.r - 4);
+          o.x = o.x0 + o.wa * Math.sin(o.wf * t + o.ph);
           o.ring += ((o.edible ? 0 : 1) - o.ring) * Math.min(1, dt * 10);
           if (y < -60) continue;
           const d = Math.hypot(o.x - me.x, y - PLAYER_Y);
@@ -664,6 +694,8 @@ export default {
               drawSprite(g, dangerHalo, o.x, y, { size: o.r * 4.8 * pulse, alpha: o.ring * 0.85 });
               drawSprite(g, redRing, o.x, y, { size: ((S + 16) * o.r * pulse) / ART_R, alpha: o.ring, rot: t * 0.6 + o.ph });
             }
+            // a hunting giant reaches out towards you with a red pseudopod
+            if (o.chase && o.ring > 0.5) drawSprite(g, dangerHalo, o.x + o.chase * o.r * 0.9, y + o.r * 0.25, { size: o.r * 2.6 * pulse, alpha: Math.abs(o.chase) * o.ring * 0.8 });
           }
           drawSprite(g, o.sprite, o.x, y, { size, rot: o.rot + o.spin * t });
           // too big to eat: the cell itself turns red, so it reads at a glance; edible ones stay unmarked
