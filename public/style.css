@@ -214,6 +214,10 @@ a.btn {
   display: inline-block;
 }
 
+a.btn[hidden] {
+  display: none;
+}
+
 .mode-banner {
   margin: 0;
   padding: 8px 14px;
