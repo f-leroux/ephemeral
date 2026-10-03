@@ -534,7 +534,8 @@ export default {
         // walls roll down the hill
         if (t >= nextWall) {
           const p = progress(t, 60, 1.15);
-          const gw = lerp(186, 110, p);
+          // gateways start extra wide and narrow to their usual size by the half-way mark
+          const gw = lerp(186, 110, p) + 70 * clamp(1 - t / 30, 0, 1);
           const maxShift = lerp(70, 170, p);
           const lo = gw / 2 + 26;
           const hi = W - gw / 2 - 26;
