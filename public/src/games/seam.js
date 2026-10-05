@@ -26,7 +26,7 @@ const TABLE_DT = 0.01;
 
 const speedAt = (t) => lerp(150, 265, progress(t, 60, 1.15));
 // the seam allowance: a wide funnel to start sewing in, then it narrows over the minute
-const tolAt = (t) => lerp(24, 11, progress(t, 60, 1.1)) + Math.max(0, 3.2 - t) * 140;
+const tolAt = (t) => lerp(36, 18, progress(t, 60, 1.1)) + Math.max(0, 3.2 - t) * 140;
 const smooth = (u) => u * u * (3 - 2 * u);
 
 // ---------- art ----------
@@ -496,7 +496,7 @@ export default {
           lo = Math.min(lo, x);
           hi = Math.max(hi, x);
         }
-        const A = plan.range(64, 84);
+        const A = plan.range(84, 104);
         const opts = [];
         if (hi + A <= W - 24) opts.push(1);
         if (lo - A >= 24) opts.push(-1);
