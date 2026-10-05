@@ -21,7 +21,7 @@ const X_MAX = 314;
 const PATCH = 120; // quilt squares
 const DASH = 16; // chalk dash period, in fabric distance
 const STITCH = 7; // stitch length
-const MOVE_SPEED = 280;
+const MOVE_SPEED = 205; // gentle steering: the seam’s own swing speed scales with this, so it stays followable
 const TABLE_DT = 0.01;
 
 const speedAt = (t) => lerp(150, 265, progress(t, 60, 1.15));
@@ -555,7 +555,7 @@ export default {
     const mote = glowSprite('rgba(255,235,190,1)', 6);
     const vignette = vignetteSprite(W, H, 0.7, '20,8,4');
 
-    const needle = createMover({ x: W / 2, minX: 18, maxX: W - 18, speed: MOVE_SPEED, accel: 24 });
+    const needle = createMover({ x: W / 2, minX: 18, maxX: W - 18, speed: MOVE_SPEED, accel: 16 });
     const fluff = createParticles();
     const sparks = createParticles();
     const motes = Array.from({ length: 16 }, () => ({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - 0.5) * 8, vy: -4 - Math.random() * 6, ph: Math.random() * 6.28 }));
