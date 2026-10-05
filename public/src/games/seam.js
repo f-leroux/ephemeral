@@ -1,7 +1,7 @@
 // Seam Stress — a mint-green vintage sewing machine stitching a patchwork quilt under a warm lamp.
 // The needle has to follow the tailor's chalk line: stray outside the seam allowance and the seam is
-// ruined. Now and then the chalk splits in two and one branch ends at a pin; later, bits of the chalk
-// have been rubbed away and you have to carry the curve across the gap by eye.
+// ruined. Now and then the chalk splits into two mirror-image branches and one ends at a pin; later,
+// bits of the chalk have been rubbed away and you have to carry the curve across the gap by eye.
 
 import {
   createMover,
@@ -464,7 +464,7 @@ export default {
         wp.push({ d: Dat(T), x });
       }
     }
-    const mainX = (d) => {
+    const baseX = (d) => {
       let lo = 0;
       let hi = wp.length - 1;
       if (d >= wp[hi].d) return wp[hi].x;
@@ -479,34 +479,64 @@ export default {
       return a.x + (b.x - a.x) * (1 - Math.cos(Math.PI * u)) * 0.5;
     };
 
-    // ---- forks: a second chalk line peels off and stops dead at a pin ----
+    // ---- forks: the chalk splits in two mirror-image branches; one stops dead at a pin ----
+    // Both branches peel away from the original curve by the same amount on either side, so their
+    // shapes give nothing away: only the pin tells you which one is a dead end. After the pin, the
+    // real seam eases back onto the original curve.
     const forks = [];
+    const ramp = (f, d) => {
+      if (d <= f.d0) return 0;
+      if (d < f.dS) return smooth((d - f.d0) / (f.dS - f.d0));
+      if (d <= f.d1) return 1;
+      if (d < f.d2) return 1 - smooth((d - f.d1) / (f.d2 - f.d1));
+      return 0;
+    };
+    const decoyRamp = (f, d) => (d < f.dS ? smooth(clamp((d - f.d0) / (f.dS - f.d0), 0, 1)) : 1);
+    const mainX = (d) => {
+      let x = baseX(d);
+      for (const f of forks) if (d > f.d0 && d < f.d2) x -= f.side * f.A * 0.5 * ramp(f, d);
+      return x;
+    };
     {
       let T = plan.range(7.5, 9);
       while (T < 57) {
         const p = progress(T, 60, 1.2);
         const split = lerp(0.5, 0.38, p);
         const hold = plan.range(0.45, 0.8);
+        const back = 1.1;
         const d0 = Dat(T);
         const dS = Dat(T + split);
         const d1 = Dat(T + split + hold);
+        const d2 = Dat(T + split + hold + back);
+        const A = plan.range(84, 104);
         let lo = Infinity;
         let hi = -Infinity;
-        for (let d = d0; d <= d1; d += 6) {
-          const x = mainX(d);
+        for (let d = d0; d <= d2; d += 6) {
+          const x = baseX(d);
           lo = Math.min(lo, x);
           hi = Math.max(hi, x);
         }
-        const A = plan.range(84, 104);
-        const opts = [];
-        if (hi + A <= W - 24) opts.push(1);
-        if (lo - A >= 24) opts.push(-1);
-        const side = opts.length ? plan.pick(opts) : 0;
-        if (side) forks.push({ d0, dS, d1, A, side, rot: deco.range(-0.45, 0.45) + (side > 0 ? Math.PI : 0) });
+        // the real seam must stay steerable: never faster than the needle can follow
+        const fits = (side) => {
+          if (hi + A / 2 > W - 24 || lo - A / 2 < 24) return false;
+          const f = { d0, dS, d1, d2, A, side };
+          forks.push(f);
+          let ok = true;
+          for (let tt = T; tt < T + split + hold + back && ok; tt += 0.02) {
+            if (Math.abs(mainX(Dat(tt + 0.02)) - mainX(Dat(tt))) / 0.02 > MOVE_SPEED * 0.92) ok = false;
+          }
+          forks.pop();
+          return ok;
+        };
+        const opts = [1, -1].filter(fits);
+        if (opts.length) {
+          const side = plan.pick(opts);
+          forks.push({ d0, dS, d1, d2, A, side, rot: deco.range(-0.45, 0.45) + (side > 0 ? Math.PI : 0) });
+        }
         T += plan.range(lerp(6.5, 3.4, p), lerp(8.5, 4.8, p));
       }
     }
-    const decoyX = (f, d) => mainX(d) + f.side * f.A * smooth(clamp((d - f.d0) / (f.dS - f.d0), 0, 1));
+    const decoyX = (f, d) => baseX(d) + f.side * f.A * 0.5 * decoyRamp(f, d);
 
     // ---- rubbed-out chalk: short stretches where you carry the curve by eye ----
     const gaps = [];
@@ -517,7 +547,7 @@ export default {
         const len = plan.range(0.28, lerp(0.42, 0.55, p));
         const a = Dat(T - 0.9);
         const b = Dat(T + len + 0.4);
-        if (!forks.some((f) => f.d1 > a && f.d0 < b)) {
+        if (!forks.some((f) => f.d2 > a && f.d0 < b)) {
           const g0 = Dat(T);
           const g1 = Dat(T + len);
           const smudges = Array.from({ length: 5 }, () => {
