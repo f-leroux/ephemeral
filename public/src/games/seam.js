@@ -21,7 +21,8 @@ const X_MAX = 314;
 const PATCH = 120; // quilt squares
 const DASH = 16; // chalk dash period, in fabric distance
 const STITCH = 7; // stitch length
-const MOVE_SPEED = 205; // gentle steering: the seam’s own swing speed scales with this, so it stays followable
+const PATH_SPEED = 205; // sets how fast the chalk seam itself swings sideways (the path stays as playtested)
+const MOVE_SPEED = 182; // gentle steering, still faster than the seam's quickest swing (0.78 × PATH_SPEED)
 const TABLE_DT = 0.01;
 
 const speedAt = (t) => lerp(150, 265, progress(t, 60, 1.15));
@@ -381,7 +382,7 @@ export default {
   id: 'seam',
   title: 'Seam Stress',
   emoji: '🧵',
-  tagline: 'Steer the sewing machine so the needle stays on the chalk seam; stray out of the pale band and the seam is ruined. Where the chalk splits, take the branch that doesn’t end in a pin.',
+  tagline: 'Keep the needle on the chalk seam. Where it splits, avoid the pin.',
   colors: { bg: '#2a1c18', fg: '#fbefd6', accent: '#e6b532' },
 
   // Electro swing: a 1930s ballroom tune on a modern four-on-the-floor, G minor at 128 BPM
@@ -452,7 +453,7 @@ export default {
       while (T < 64) {
         const p = progress(T, 60, 1.2);
         const dur = plan.range(lerp(0.95, 0.5, p), lerp(1.6, 0.85, p));
-        const vmax = lerp(0.42, 0.78, p) * MOVE_SPEED;
+        const vmax = lerp(0.42, 0.78, p) * PATH_SPEED;
         const amax = lerp(700, 1900, p);
         const dxMax = Math.min((vmax * dur * 2) / Math.PI, (amax * dur * dur * 2) / (Math.PI * Math.PI));
         const dx = plan.range(lerp(0.2, 0.5, p), 1) * dxMax;
@@ -555,7 +556,7 @@ export default {
     const mote = glowSprite('rgba(255,235,190,1)', 6);
     const vignette = vignetteSprite(W, H, 0.7, '20,8,4');
 
-    const needle = createMover({ x: W / 2, minX: 18, maxX: W - 18, speed: MOVE_SPEED, accel: 16 });
+    const needle = createMover({ x: W / 2, minX: 18, maxX: W - 18, speed: MOVE_SPEED, accel: 10 });
     const fluff = createParticles();
     const sparks = createParticles();
     const motes = Array.from({ length: 16 }, () => ({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - 0.5) * 8, vy: -4 - Math.random() * 6, ph: Math.random() * 6.28 }));
