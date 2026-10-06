@@ -26,6 +26,10 @@ const BOUNCE = 0.45;
 const SPACING = 28; // hole spacing in a perforated row
 const LINE_R = 13.5;
 const TABLE_DT = 0.01;
+const MAX_ANGLE = 0.17; // how far the box visibly rolls on full tilt (radians, ~10°)
+const CAMERA = 520; // camera distance for the perspective of the tilted box
+const STRIPS = 48; // vertical slices used to draw the box in perspective
+const BOX_DEPTH = 30; // height of the box's outer side, seen when that side dips
 
 const speedAt = (t) => lerp(150, 330, progress(t, 60, 1.2));
 const smooth = (u) => u * u * (3 - 2 * u);
@@ -335,6 +339,27 @@ function paintWall(W, h, near) {
   }, 1.5);
 }
 
+function paintTable(W, H) {
+  // the dark tabletop the box sits on, glimpsed around it when it tilts
+  return makeSprite(W, H, (g) => {
+    g.translate(-W / 2, -H / 2);
+    const f = g.createRadialGradient(W * 0.3, H * 0.25, 20, W / 2, H / 2, H * 0.8);
+    f.addColorStop(0, '#4a2a16');
+    f.addColorStop(1, '#170b05');
+    g.fillStyle = f;
+    g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 40; i++) {
+      const y = Math.random() * H;
+      g.strokeStyle = `rgba(10,4,1,${0.15 + Math.random() * 0.2})`;
+      g.lineWidth = 0.6 + Math.random();
+      g.beginPath();
+      g.moveTo(0, y);
+      g.bezierCurveTo(W * 0.3, y + 4, W * 0.7, y - 4, W, y + 2);
+      g.stroke();
+    }
+  }, 1);
+}
+
 // ---------- game ----------
 
 export default {
@@ -392,6 +417,11 @@ export default {
     const lamp = glowSprite('rgba(255,214,150,1)', 140);
     const shine = glowSprite('rgba(255,250,235,1)', 16);
     const vignette = vignetteSprite(W, H, 0.5, '30,12,4');
+    const table = paintTable(W, H);
+    // the whole box is drawn flat into this layer, then projected onto the screen as a tilted plane
+    const scene = document.createElement('canvas');
+    const sg = scene.getContext('2d');
+    let sceneK = 0;
     const fx = createParticles();
     const xMin = FRAME + R;
     const xMax = W - FRAME - R;
@@ -602,103 +632,20 @@ export default {
       },
 
       render(g) {
-        const t = lastT;
-        const D = Dat(t);
-        const off = D % H;
-        drawSprite(g, board, W / 2, H / 2 + off);
-        drawSprite(g, board, W / 2, H / 2 + off - H);
-
-        // painted start mark
-        const sy = yOf(-10, t);
-        if (sy < H + 30) {
-          g.strokeStyle = 'rgba(170,50,30,0.6)';
-          g.lineWidth = 2.5;
-          g.beginPath();
-          g.arc(W / 2, sy, 20, 0, Math.PI * 2);
-          g.stroke();
-          g.fillStyle = 'rgba(170,50,30,0.65)';
-          g.font = '800 13px system-ui, sans-serif';
-          g.textAlign = 'center';
-          g.textBaseline = 'middle';
-          g.fillText('START', W / 2, sy + 36);
+        const k = clamp(g.getTransform?.()?.a || 2, 1, 2.5);
+        if (k !== sceneK) {
+          sceneK = k;
+          scene.width = Math.ceil(W * k);
+          scene.height = Math.ceil(H * k);
         }
+        sg.setTransform(k, 0, 0, k, 0, 0);
+        sg.clearRect(0, 0, W, H);
+        drawBox(sg, game.dead);
+        project(g);
 
-        // warped stretches: shaded like a slope, with arrows painted along them
-        for (const w of warps) {
-          const y0 = yOf(w.d1, t);
-          const y1 = yOf(w.d0, t);
-          if (y1 < 0 || y0 > H) continue;
-          const dn = Math.sign(w.push);
-          const grad = g.createLinearGradient(dn > 0 ? FRAME : W - FRAME, 0, dn > 0 ? W - FRAME : FRAME, 0);
-          grad.addColorStop(0, 'rgba(255,240,210,0.16)');
-          grad.addColorStop(1, 'rgba(90,40,10,0.24)');
-          g.fillStyle = grad;
-          g.fillRect(FRAME, y0, W - 2 * FRAME, y1 - y0);
-          g.fillStyle = 'rgba(90,40,10,0.3)';
-          g.fillRect(FRAME, y0, W - 2 * FRAME, 2);
-          g.fillRect(FRAME, y1 - 2, W - 2 * FRAME, 2);
-          for (let d = w.d0 + 30; d < w.d1 - 20; d += 70) {
-            const y = yOf(d, t);
-            if (y < -20 || y > H + 20) continue;
-            for (const cx of [W * 0.3, W * 0.7]) drawSprite(g, chevron, cx, y, { rot: dn > 0 ? 0 : Math.PI });
-          }
-        }
-
-        // painted numbers by each row's gap, like on the old wooden games
-        g.font = '800 12px system-ui, sans-serif';
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        for (const lb of labels) {
-          const y = yOf(lb.d, t);
-          if (y < TOP - 20 || y > FRONT + 20) continue;
-          g.fillStyle = 'rgba(170,50,30,0.22)';
-          g.beginPath();
-          g.arc(lb.x, y, 10, 0, Math.PI * 2);
-          g.fill();
-          g.fillStyle = 'rgba(150,40,25,0.75)';
-          g.fillText(String(lb.n), lb.x, y + 0.5);
-        }
-
-        // holes
-        for (const h of holes) {
-          const y = yOf(h.d, t);
-          if (y > H + 30) continue;
-          if (y < -30) break;
-          drawSprite(g, holeArt, h.x, y, { size: ((holeArt.w * h.r) / 20) });
-        }
-
-        // rails
-        for (const rl of rails) {
-          const y0 = yOf(rl.d1, t);
-          const y1 = yOf(rl.d0, t);
-          if (y1 < -10 || y0 > H + 10) continue;
-          drawSprite(g, rl.art, rl.x + 1, (y0 + y1) / 2 + 2);
-        }
-
-        // the ball, its shadow leaning with the board
-        if (!this.dead) {
-          g.fillStyle = 'rgba(50,25,8,0.35)';
-          g.beginPath();
-          g.ellipse(ball.x + 3 - tilt * 2, BALL_Y + 4, R + 1, R * 0.85, 0, 0, Math.PI * 2);
-          g.fill();
-          drawSprite(g, ballArt, ball.x, BALL_Y);
-        } else if (fallInto) {
-          const k = clamp(1 - deadT * 2.2, 0, 1);
-          if (k > 0) {
-            const y = yOf(fallInto.d, t);
-            drawSprite(g, ballArt, ball.x, lerp(y, BALL_Y, k * k), { size: ballArt.w * (0.55 + 0.45 * k), alpha: 0.35 + 0.65 * k });
-            g.fillStyle = `rgba(5,2,1,${(1 - k) * 0.8})`;
-            g.beginPath();
-            g.arc(fallInto.x, y + 1, fallInto.r - 2, 0, Math.PI * 2);
-            g.fill();
-          }
-        }
-        fx.render(g);
-
-        // warm lamp light and dust floating in it
+        // warm lamp light and dust floating in it, in the room rather than on the board
         g.globalCompositeOperation = 'lighter';
         drawSprite(g, lamp, W * 0.2, H * 0.22, { size: 520, alpha: 0.16 });
-        if (!this.dead) drawSprite(g, shine, ball.x - 4, BALL_Y - 5, { size: 18, alpha: 0.35 });
         for (const m of motes) {
           m.y -= 0.12 * m.s;
           m.x += Math.sin(clock * 0.6 + m.ph) * 0.1;
@@ -708,30 +655,187 @@ export default {
           g.fillRect(m.x, m.y, 1.6 * m.s, 1.6 * m.s);
         }
         g.globalCompositeOperation = 'source-over';
-
-        // the board darkens on the side it's tilted down to
-        if (Math.abs(tilt) > 0.02) {
-          const grad = g.createLinearGradient(0, 0, W, 0);
-          const a = Math.abs(tilt) * 0.14;
-          grad.addColorStop(0, tilt < 0 ? `rgba(40,15,0,${a})` : `rgba(255,240,210,${a * 0.6})`);
-          grad.addColorStop(1, tilt > 0 ? `rgba(40,15,0,${a})` : `rgba(255,240,210,${a * 0.6})`);
-          g.fillStyle = grad;
-          g.fillRect(0, TOP, W, FRONT - TOP);
-        }
-
-        // the walls of the box, and the brass knob that tilts it
-        drawSprite(g, farWall, W / 2, TOP / 2);
-        drawSprite(g, nearWall, W / 2, (FRONT + H) / 2);
-        drawSprite(g, knob, W / 2, FRONT + 21, { rot: tilt * 1.1, size: 40 });
-        g.fillStyle = 'rgba(255,230,190,0.35)';
-        g.font = '700 9px system-ui, sans-serif';
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        g.fillText('◀ TILT', W / 2 - 52, FRONT + 22);
-        g.fillText('TILT ▶', W / 2 + 52, FRONT + 22);
         drawSprite(g, vignette, W / 2, H / 2);
       },
     };
+
+    // ---- the box rolls about its long axis: the dipping side sinks away from the camera and
+    // shrinks, the rising side comes closer and grows, and the table shows around the edges ----
+    function project(g) {
+      const th = tilt * MAX_ANGLE;
+      const cx = W / 2;
+      const cy = H / 2;
+      const cos = Math.cos(th);
+      const sin = Math.sin(th);
+      const sAt = (x) => CAMERA / (CAMERA + (x - cx) * sin);
+      const X = (x) => cx + (x - cx) * cos * sAt(x);
+      drawSprite(g, table, W / 2, H / 2);
+      // the box's shadow on the table, thrown towards the low side
+      const sL = sAt(0);
+      const sR = sAt(W);
+      const lean = tilt * 7;
+      g.fillStyle = 'rgba(5,2,0,0.5)';
+      g.beginPath();
+      g.moveTo(X(0) + lean + 3, cy - cy * sL + 8);
+      g.lineTo(X(W) + lean + 3, cy - cy * sR + 8);
+      g.lineTo(X(W) + lean + 3, cy + (H - cy) * sR + 8);
+      g.lineTo(X(0) + lean + 3, cy + (H - cy) * sL + 8);
+      g.fill();
+      if (Math.abs(th) < 0.002) {
+        g.drawImage(scene, 0, 0, W, H);
+        return;
+      }
+      // the outer side of the box on the low side comes into view
+      const lowX = th > 0 ? W : 0;
+      const sl = sAt(lowX);
+      const xl = X(lowX);
+      const dd = Math.sign(th) * BOX_DEPTH * Math.abs(sin) * sl;
+      const yt = cy - cy * sl;
+      const yb = cy + (H - cy) * sl;
+      const side = g.createLinearGradient(xl, 0, xl + dd, 0);
+      side.addColorStop(0, '#5e3720');
+      side.addColorStop(1, '#24120a');
+      g.fillStyle = side;
+      g.beginPath();
+      g.moveTo(xl, yt);
+      g.lineTo(xl + dd, yt + 2);
+      g.lineTo(xl + dd, yb - 2);
+      g.lineTo(xl, yb);
+      g.fill();
+      // the board itself, slice by slice
+      const sw = W / STRIPS;
+      const kx = scene.width / W;
+      for (let i = 0; i < STRIPS; i++) {
+        const x0 = i * sw;
+        const x1 = x0 + sw;
+        const s = sAt(x0 + sw / 2);
+        const dx0 = X(x0);
+        const dx1 = X(x1);
+        g.drawImage(scene, x0 * kx, 0, sw * kx, scene.height, Math.min(dx0, dx1) - 0.3, cy - cy * s, Math.abs(dx1 - dx0) + 0.6, H * s);
+      }
+    }
+
+    function drawBox(g, dead) {
+      const t = lastT;
+      const D = Dat(t);
+      const off = D % H;
+      drawSprite(g, board, W / 2, H / 2 + off);
+      drawSprite(g, board, W / 2, H / 2 + off - H);
+
+      // painted start mark
+      const sy = yOf(-10, t);
+      if (sy < H + 30) {
+        g.strokeStyle = 'rgba(170,50,30,0.6)';
+        g.lineWidth = 2.5;
+        g.beginPath();
+        g.arc(W / 2, sy, 20, 0, Math.PI * 2);
+        g.stroke();
+        g.fillStyle = 'rgba(170,50,30,0.65)';
+        g.font = '800 13px system-ui, sans-serif';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillText('START', W / 2, sy + 36);
+      }
+
+      // warped stretches: shaded like a slope, with arrows painted along them
+      for (const w of warps) {
+        const y0 = yOf(w.d1, t);
+        const y1 = yOf(w.d0, t);
+        if (y1 < 0 || y0 > H) continue;
+        const dn = Math.sign(w.push);
+        const grad = g.createLinearGradient(dn > 0 ? FRAME : W - FRAME, 0, dn > 0 ? W - FRAME : FRAME, 0);
+        grad.addColorStop(0, 'rgba(255,240,210,0.16)');
+        grad.addColorStop(1, 'rgba(90,40,10,0.24)');
+        g.fillStyle = grad;
+        g.fillRect(FRAME, y0, W - 2 * FRAME, y1 - y0);
+        g.fillStyle = 'rgba(90,40,10,0.3)';
+        g.fillRect(FRAME, y0, W - 2 * FRAME, 2);
+        g.fillRect(FRAME, y1 - 2, W - 2 * FRAME, 2);
+        for (let d = w.d0 + 30; d < w.d1 - 20; d += 70) {
+          const y = yOf(d, t);
+          if (y < -20 || y > H + 20) continue;
+          for (const cx of [W * 0.3, W * 0.7]) drawSprite(g, chevron, cx, y, { rot: dn > 0 ? 0 : Math.PI });
+        }
+      }
+
+      // painted numbers by each row's gap, like on the old wooden games
+      g.font = '800 12px system-ui, sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      for (const lb of labels) {
+        const y = yOf(lb.d, t);
+        if (y < TOP - 20 || y > FRONT + 20) continue;
+        g.fillStyle = 'rgba(170,50,30,0.22)';
+        g.beginPath();
+        g.arc(lb.x, y, 10, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = 'rgba(150,40,25,0.75)';
+        g.fillText(String(lb.n), lb.x, y + 0.5);
+      }
+
+      // holes
+      for (const h of holes) {
+        const y = yOf(h.d, t);
+        if (y > H + 30) continue;
+        if (y < -30) break;
+        drawSprite(g, holeArt, h.x, y, { size: ((holeArt.w * h.r) / 20) });
+      }
+
+      // rails
+      for (const rl of rails) {
+        const y0 = yOf(rl.d1, t);
+        const y1 = yOf(rl.d0, t);
+        if (y1 < -10 || y0 > H + 10) continue;
+        drawSprite(g, rl.art, rl.x + 1, (y0 + y1) / 2 + 2);
+      }
+
+      // the ball, its shadow leaning with the board
+      if (!dead) {
+        g.fillStyle = 'rgba(50,25,8,0.35)';
+        g.beginPath();
+        g.ellipse(ball.x + 3 - tilt * 2, BALL_Y + 4, R + 1, R * 0.85, 0, 0, Math.PI * 2);
+        g.fill();
+        drawSprite(g, ballArt, ball.x, BALL_Y);
+      } else if (fallInto) {
+        const k = clamp(1 - deadT * 2.2, 0, 1);
+        if (k > 0) {
+          const y = yOf(fallInto.d, t);
+          drawSprite(g, ballArt, ball.x, lerp(y, BALL_Y, k * k), { size: ballArt.w * (0.55 + 0.45 * k), alpha: 0.35 + 0.65 * k });
+          g.fillStyle = `rgba(5,2,1,${(1 - k) * 0.8})`;
+          g.beginPath();
+          g.arc(fallInto.x, y + 1, fallInto.r - 2, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+      fx.render(g);
+
+      if (!dead) {
+        g.globalCompositeOperation = 'lighter';
+        drawSprite(g, shine, ball.x - 4, BALL_Y - 5, { size: 18, alpha: 0.35 });
+        g.globalCompositeOperation = 'source-over';
+      }
+
+      // the board darkens on the side it's tilted down to
+      if (Math.abs(tilt) > 0.02) {
+        const grad = g.createLinearGradient(0, 0, W, 0);
+        const a = Math.abs(tilt) * 0.14;
+        grad.addColorStop(0, tilt < 0 ? `rgba(40,15,0,${a})` : `rgba(255,240,210,${a * 0.6})`);
+        grad.addColorStop(1, tilt > 0 ? `rgba(40,15,0,${a})` : `rgba(255,240,210,${a * 0.6})`);
+        g.fillStyle = grad;
+        g.fillRect(0, TOP, W, FRONT - TOP);
+      }
+
+      // the walls of the box, and the brass knob that tilts it
+      drawSprite(g, farWall, W / 2, TOP / 2);
+      drawSprite(g, nearWall, W / 2, (FRONT + H) / 2);
+      drawSprite(g, knob, W / 2, FRONT + 21, { rot: tilt * 1.1, size: 40 });
+      g.fillStyle = 'rgba(255,230,190,0.35)';
+      g.font = '700 9px system-ui, sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('◀ TILT', W / 2 - 52, FRONT + 22);
+      g.fillText('TILT ▶', W / 2 + 52, FRONT + 22);
+    }
     return game;
   },
 };
