@@ -2,7 +2,7 @@
 // you are the spatula sliding along under it. Every pancake has to be flipped once its first side is
 // golden, then served once its second side is done; you only flip by holding still under a ready one.
 // Let a single pancake burn and breakfast is over. It's plate spinning: more pancakes on the griddle at
-// once, cooking faster, and from 20s small "silver dollars" that are ready (and burn) even sooner.
+// once, cooking faster, and from 25s small "silver dollars" that are ready (and burn) even sooner.
 
 import {
   createMover,
@@ -21,9 +21,10 @@ const ROW_Y = 498; // pancake centres on the griddle
 const GRIDDLE_TOP = 432;
 const GRIDDLE_BOTTOM = 566;
 const LEAD = 0.8; // the ladle shows where batter goes this long before it pours
-const CATCH = 17; // how close the spatula has to be under a pancake
+const CATCH = 27; // how close the spatula has to be under a pancake (just under half the gap between spots)
 const DWELL = 0.1; // and for how long, to flip it
-const STILL = 130; // slower than this counts as holding still
+const STILL = 170; // slower than this counts as holding still
+const SETTLE = 14; // once you let go near a pancake, the spatula settles in under it this fast
 const FLIP_ANIM = 0.36;
 const SCOOP = 0.42; // the spatula's scoop-and-flick, purely cosmetic
 const PLATE = { x: 300, y: 312 };
@@ -596,15 +597,15 @@ export default {
     {
       let T = 1.0;
       while (T < 64) {
-        const p = progress(T, 60, 1.15);
-        const small = T > 20 && plan.chance(lerp(0.2, 0.4, p));
-        let cA = lerp(3.3, 1.9, p) * plan.range(0.9, 1.15);
-        let wA = lerp(3.4, 1.45, p) * plan.range(0.9, 1.1);
-        if (small) (cA *= 0.7), (wA *= 0.82);
+        const p = progress(T, 60, 1.3);
+        const small = T > 25 && plan.chance(lerp(0.15, 0.35, p));
+        let cA = lerp(3.6, 2.1, p) * plan.range(0.9, 1.15);
+        let wA = lerp(4.0, 1.6, p) * plan.range(0.9, 1.1);
+        if (small) (cA *= 0.75), (wA *= 0.85);
         const cB = cA * plan.range(0.72, 0.9);
         const wB = wA * plan.range(0.9, 1.05);
         defs.push({ T, cA, wA, cB, wB, small, u: plan.next() });
-        T += plan.range(lerp(2.3, 0.85, p), lerp(2.9, 1.1, p));
+        T += plan.range(lerp(3.0, 1.15, p), lerp(3.6, 1.45, p));
       }
     }
 
@@ -636,11 +637,25 @@ export default {
       update(dt, dir, t) {
         lastT = t;
         clock += dt;
-        heat = progress(t, 60, 1.15);
+        heat = progress(t, 60, 1.3);
         spatula.update(dt, dir);
+        // let go near a pancake and the spatula settles in under it instead of sliding past
+        if (dir === 0) {
+          let near = -1;
+          for (let i = 0; i < SPOTS.length; i++) if (spots[i] && Math.abs(spatula.x - SPOTS[i]) < CATCH) near = i;
+          if (near >= 0) {
+            const k = Math.min(1, SETTLE * dt);
+            spatula.vx *= 1 - k;
+            spatula.x += (SPOTS[near] - spatula.x) * k;
+          }
+        }
 
-        // the cook reaches over with the ladle, then pours
+        // the cook reaches over with the ladle, then pours (never more on the griddle than the rush allows)
+        const cap = Math.round(lerp(3, 5, heat));
         while (nextDef < defs.length && defs[nextDef].T - LEAD <= t) {
+          let busy = ladles.filter((l) => !l.poured).length;
+          for (const s of spots) if (s) busy++;
+          if (busy >= cap) break;
           const free = [];
           for (let i = 0; i < SPOTS.length; i++) if (!spots[i] && !reserved[i]) free.push(i);
           if (!free.length) break;
