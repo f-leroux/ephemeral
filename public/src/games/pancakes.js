@@ -25,6 +25,7 @@ const CATCH = 17; // how close the spatula has to be under a pancake
 const DWELL = 0.1; // and for how long, to flip it
 const STILL = 130; // slower than this counts as holding still
 const FLIP_ANIM = 0.36;
+const SCOOP = 0.42; // the spatula's scoop-and-flick, purely cosmetic
 const PLATE = { x: 300, y: 312 };
 
 // ---------- art ----------
@@ -622,6 +623,7 @@ export default {
     let culprit = -1;
     let deadT = 0;
     let heat = 0;
+    let scoop = null; // { t0, kind: 'flip' | 'serve' }
 
     const game = {
       dead: false,
@@ -682,10 +684,12 @@ export default {
                 s.burnAt = s.readyAt + s.d.wB;
                 s.dwell = 0;
                 s.flipT = clock;
+                scoop = { t0: clock, kind: 'flip' };
                 fx.burst(SPOTS[i], ROW_Y + 4, { count: 12, speed: 110, life: 0.45, size: 2.6, round: true, gravity: 320, angle: -Math.PI / 2, spread: 2.8, colors: ['#ffe066', '#fff2b0', '#ffd27a'] });
               } else {
                 spots[i] = null;
                 flyers.push({ x0: SPOTS[i], t0: clock, small: s.d.small });
+                scoop = { t0: clock, kind: 'serve' };
                 fx.burst(SPOTS[i], ROW_Y, { count: 10, speed: 90, life: 0.4, size: 2.4, round: true, gravity: 260, angle: -Math.PI / 2, spread: 2.4, colors: ['#ffe066', '#ffffff'] });
               }
             }
@@ -796,7 +800,8 @@ export default {
           g.setLineDash([]);
         }
 
-        // the pancakes
+        // the pancakes (the ones mid-flip are drawn after the spatula, since they're up in the air off it)
+        const airborne = [];
         for (let i = 0; i < SPOTS.length; i++) {
           const s = spots[i];
           if (!s) continue;
@@ -812,14 +817,7 @@ export default {
             continue;
           }
           if (fu >= 0 && fu < 1) {
-            // mid-flip: up, over, and back down golden side up
-            g.save();
-            g.translate(x, ROW_Y - Math.sin(Math.PI * fu) * 46);
-            g.scale(1, Math.max(0.06, Math.abs(Math.cos(Math.PI * fu))));
-            g.rotate((fu - 0.5) * 0.4);
-            const sp = fu < 0.5 ? cake.raw : cake.golden;
-            g.drawImage(sp.canvas, -size / 2, -(size * 44) / 64 / 2, size, (size * 44) / 64);
-            g.restore();
+            airborne.push({ x, size, fu });
             continue;
           }
           const sz = size * (0.4 + 0.6 * grow);
@@ -880,11 +878,51 @@ export default {
           }
         }
 
-        // the spatula
+        // the spatula: at rest it slides along the front of the griddle; on a flip or a serve it jabs
+        // in under the pancake, flicks its blade up (squashed, as it tilts away from us) and settles back
         const sx = spatula.x;
         g.fillStyle = 'rgba(255,240,200,0.08)';
         g.fillRect(sx - CATCH, GRIDDLE_TOP, CATCH * 2, GRIDDLE_BOTTOM - GRIDDLE_TOP);
-        drawSprite(g, spatulaArt, sx, 572, { size: 64, rot: spatula.lean * 0.05 });
+        const fk = scoop ? (clock - scoop.t0) / SCOOP : 1;
+        if (fk >= 0 && fk < 1) {
+          const serve = scoop.kind === 'serve';
+          const jab = fk < 0.18 ? Math.sin((fk / 0.18) * Math.PI * 0.5) : 1 - Math.pow((fk - 0.18) / 0.82, 2);
+          const tilt = fk < 0.12 ? 0 : Math.sin(clamp((fk - 0.12) / 0.6, 0, 1) * Math.PI);
+          const wrist = serve ? 0.55 * tilt : -0.32 * Math.sin(clamp((fk - 0.12) / 0.6, 0, 1) * Math.PI * 2);
+          const pivotY = 622; // the hand, down on the handle
+          g.save();
+          g.translate(sx + (serve ? tilt * 8 : 0), pivotY - jab * 30);
+          g.rotate(spatula.lean * 0.05 + wrist);
+          g.scale(1 + tilt * 0.08, 1 - tilt * 0.45);
+          drawSprite(g, spatulaArt, 0, 572 - pivotY, { size: 64 });
+          g.restore();
+          // a swoosh off the blade's edge
+          if (tilt > 0.15) {
+            const by = 516 - jab * 30 + tilt * 22;
+            g.globalCompositeOperation = 'lighter';
+            g.strokeStyle = `rgba(255,244,214,${0.5 * tilt})`;
+            g.lineWidth = 3;
+            g.lineCap = 'round';
+            g.beginPath();
+            if (serve) g.arc(sx + 30, by, 34, Math.PI * 1.05, Math.PI * 1.45);
+            else g.arc(sx, by + 6, 30, Math.PI * 1.15, Math.PI * 1.85);
+            g.stroke();
+            g.globalCompositeOperation = 'source-over';
+          }
+        } else {
+          drawSprite(g, spatulaArt, sx, 572, { size: 64, rot: spatula.lean * 0.05 });
+        }
+
+        // pancakes mid-flip: up off the blade, over, and back down golden side up
+        for (const a of airborne) {
+          g.save();
+          g.translate(a.x, ROW_Y - Math.sin(Math.PI * a.fu) * 46);
+          g.scale(1, Math.max(0.06, Math.abs(Math.cos(Math.PI * a.fu))));
+          g.rotate((a.fu - 0.5) * 0.4);
+          const sp = a.fu < 0.5 ? cake.raw : cake.golden;
+          g.drawImage(sp.canvas, -a.size / 2, -(a.size * 44) / 64 / 2, a.size, (a.size * 44) / 64);
+          g.restore();
+        }
 
         // ladles reaching in from the cook's side
         for (const l of ladles) {
