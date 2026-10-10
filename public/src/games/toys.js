@@ -302,110 +302,134 @@ function paintBall() {
   }, true);
 }
 
-function paintTeddy() {
-  return makeSprite(40, 44, (g) => {
-    const fur = (x, y, r) => {
-      const f = g.createRadialGradient(x - r * 0.35, y - r * 0.4, 0, x, y, r);
-      f.addColorStop(0, '#d9a066');
-      f.addColorStop(0.6, '#b07440');
-      f.addColorStop(1, '#7a4a24');
-      return f;
-    };
-    // feet
-    for (const s of [-1, 1]) {
-      g.fillStyle = fur(s * 7, 18, 6);
-      g.beginPath();
-      g.ellipse(s * 7, 18, 6, 4.5, 0, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = '#efcf9e';
-      g.beginPath();
-      g.ellipse(s * 7, 18.6, 3.4, 2.6, 0, 0, Math.PI * 2);
-      g.fill();
-    }
-    // body and arms
-    g.fillStyle = fur(0, 8, 12);
+// The teddy is drawn from parts so it can come alive: it waddles upright while it moves, and the
+// moment it stops it flops into an ordinary toy's pose (sat down, arms stuck out, head lolled,
+// glassy button eyes) to fool the kid.
+function paintTeddyParts() {
+  const fur = (g, x, y, r) => {
+    const f = g.createRadialGradient(x - r * 0.35, y - r * 0.4, 0, x, y, r);
+    f.addColorStop(0, '#d9a066');
+    f.addColorStop(0.6, '#b07440');
+    f.addColorStop(1, '#7a4a24');
+    return f;
+  };
+  const foot = makeSprite(14, 11, (g) => {
+    g.fillStyle = fur(g, 0, 0, 6);
     g.beginPath();
-    g.ellipse(0, 8, 11, 11.5, 0, 0, Math.PI * 2);
+    g.ellipse(0, 0, 6, 4.5, 0, 0, Math.PI * 2);
     g.fill();
-    for (const s of [-1, 1]) {
-      g.save();
-      g.translate(s * 11, 5);
-      g.rotate(s * -0.5);
-      g.fillStyle = fur(0, 0, 7);
-      g.beginPath();
-      g.ellipse(0, 0, 4.2, 7.5, 0, 0, Math.PI * 2);
-      g.fill();
-      g.restore();
-    }
     g.fillStyle = '#efcf9e';
     g.beginPath();
-    g.ellipse(0, 10, 6, 6.5, 0, 0, Math.PI * 2);
+    g.ellipse(0, 0.6, 3.4, 2.6, 0, 0, Math.PI * 2);
+    g.fill();
+  });
+  const body = makeSprite(26, 27, (g) => {
+    g.fillStyle = fur(g, 0, 0, 12);
+    g.beginPath();
+    g.ellipse(0, 0, 11, 11.5, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#efcf9e';
+    g.beginPath();
+    g.ellipse(0, 2, 6, 6.5, 0, 0, Math.PI * 2);
     g.fill();
     // a stitched patch on the tummy
     g.strokeStyle = 'rgba(110,60,30,0.6)';
     g.lineWidth = 0.6;
     g.setLineDash([1.2, 1]);
-    g.strokeRect(1, 8, 4, 4);
+    g.strokeRect(1, 0, 4, 4);
     g.setLineDash([]);
-    // ears
-    for (const s of [-1, 1]) {
-      g.fillStyle = fur(s * 9.5, -16, 5.5);
-      g.beginPath();
-      g.arc(s * 9.5, -16, 5.5, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = '#efcf9e';
-      g.beginPath();
-      g.arc(s * 9.5, -15.5, 2.8, 0, Math.PI * 2);
-      g.fill();
-    }
-    // head
-    g.fillStyle = fur(0, -8, 11);
+  });
+  // an arm hanging down from its shoulder at (0, -6)
+  const arm = makeSprite(10, 17, (g) => {
+    g.fillStyle = fur(g, 0, 0, 7);
     g.beginPath();
-    g.arc(0, -8, 11, 0, Math.PI * 2);
+    g.ellipse(0, 0, 4.2, 7.5, 0, 0, Math.PI * 2);
     g.fill();
     g.fillStyle = '#efcf9e';
     g.beginPath();
-    g.ellipse(0, -4.5, 5.2, 4.2, 0, 0, Math.PI * 2);
+    g.ellipse(0, 4.8, 2.6, 2.2, 0, 0, Math.PI * 2);
+    g.fill();
+  });
+  // head centred on (0, 0), with ears, muzzle and nose; the eyes and mouth are drawn on top
+  const head = makeSprite(32, 32, (g) => {
+    for (const s of [-1, 1]) {
+      g.fillStyle = fur(g, s * 9.5, -8, 5.5);
+      g.beginPath();
+      g.arc(s * 9.5, -8, 5.5, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#efcf9e';
+      g.beginPath();
+      g.arc(s * 9.5, -7.5, 2.8, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.fillStyle = fur(g, 0, 0, 11);
+    g.beginPath();
+    g.arc(0, 0, 11, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#efcf9e';
+    g.beginPath();
+    g.ellipse(0, 3.5, 5.2, 4.2, 0, 0, Math.PI * 2);
     g.fill();
     g.fillStyle = '#2a160a';
     g.beginPath();
-    g.ellipse(0, -6, 2.2, 1.6, 0, 0, Math.PI * 2);
+    g.ellipse(0, 2, 2.2, 1.6, 0, 0, Math.PI * 2);
     g.fill();
     g.strokeStyle = '#2a160a';
     g.lineWidth = 0.8;
     g.beginPath();
-    g.moveTo(0, -4.5);
-    g.lineTo(0, -3);
-    g.moveTo(-2, -2.4);
-    g.quadraticCurveTo(0, -1.2, 2, -2.4);
+    g.moveTo(0, 3.5);
+    g.lineTo(0, 5);
     g.stroke();
-    for (const s of [-1, 1]) {
-      g.fillStyle = '#120804';
-      g.beginPath();
-      g.arc(s * 4.4, -10, 1.8, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = 'rgba(255,255,255,0.85)';
-      g.beginPath();
-      g.arc(s * 4.4 - 0.6, -10.6, 0.6, 0, Math.PI * 2);
-      g.fill();
-    }
-    // red bow tie
-    g.fillStyle = '#d8323a';
+  });
+  // the living face: a little open smile (the eyes are drawn live so they can look and blink)
+  const smile = makeSprite(8, 5, (g) => {
+    g.fillStyle = '#3a1a0c';
     g.beginPath();
-    g.moveTo(0, 2);
-    g.lineTo(-5, -0.5);
-    g.lineTo(-5, 4.5);
-    g.closePath();
-    g.moveTo(0, 2);
-    g.lineTo(5, -0.5);
-    g.lineTo(5, 4.5);
+    g.moveTo(-2.4, -1.2);
+    g.quadraticCurveTo(0, 2.6, 2.4, -1.2);
     g.closePath();
     g.fill();
-    g.fillStyle = '#9e1c24';
+    g.fillStyle = '#e0707a';
     g.beginPath();
-    g.arc(0, 2, 1.5, 0, Math.PI * 2);
+    g.ellipse(0, 0.6, 1.1, 0.7, 0, 0, Math.PI * 2);
     g.fill();
   });
+  // the toy face: glassy button eyes and a stitched mouth
+  const toyFace = makeSprite(20, 16, (g) => {
+    for (const s of [-1, 1]) {
+      const x = s * 4.4;
+      const y = -2;
+      const b = g.createRadialGradient(x - 0.8, y - 0.8, 0, x, y, 2.4);
+      b.addColorStop(0, '#4a3a30');
+      b.addColorStop(1, '#0c0604');
+      g.fillStyle = b;
+      g.beginPath();
+      g.arc(x, y, 2.3, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = 'rgba(160,130,110,0.6)';
+      g.lineWidth = 0.4;
+      g.stroke();
+      g.fillStyle = 'rgba(200,180,160,0.7)';
+      for (const [dx, dy] of [[-0.6, -0.6], [0.6, -0.6], [-0.6, 0.6], [0.6, 0.6]]) g.fillRect(x + dx - 0.25, y + dy - 0.25, 0.5, 0.5);
+      g.fillStyle = 'rgba(255,255,255,0.9)';
+      g.beginPath();
+      g.arc(x - 1, y - 1.1, 0.55, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.strokeStyle = '#2a160a';
+    g.lineWidth = 0.7;
+    g.beginPath();
+    g.moveTo(-2.6, 5.6);
+    g.quadraticCurveTo(0, 6.4, 2.6, 5.6);
+    g.stroke();
+    for (const x of [-1.8, 0, 1.8]) {
+      g.beginPath();
+      g.moveTo(x, 5.1);
+      g.lineTo(x, 6.6);
+      g.stroke();
+    }
+  });
+  return { foot, body, arm, head, smile, toyFace };
 }
 
 function paintBedBack(W) {
@@ -673,7 +697,7 @@ export default {
     const plan = rng.fork('plan');
     const floor = paintFloor(W, H, art);
     const rugs = [paintRug(70), paintRug(54)];
-    const teddyArt = paintTeddy();
+    const teddyArt = paintTeddyParts();
     const bedBack = paintBedBack(W);
     const bedFront = paintBedFront(W, art);
     const kidHead = paintKidHead();
@@ -887,6 +911,12 @@ export default {
     let tripped = null;
     let wobble = 0;
     let nextZ = 0;
+    // the teddy's act (cosmetic only): 0 alive and waddling, 1 playing an ordinary toy
+    let toyness = 0;
+    let stillFor = 0;
+    let flop = 1; // which way its head lolls when it freezes
+    let blinkAt = 1.5;
+    let lookX = 0;
 
     const yOf = (d, t) => TEDDY_Y - (d - Dat(t));
     // what the kid is doing at time t
@@ -915,6 +945,11 @@ export default {
         clock += dt;
         teddy.update(dt, dir);
         walk += Math.abs(teddy.vx) * dt * 0.09;
+        stillFor = Math.abs(teddy.vx) < 25 ? stillFor + dt : 0;
+        const act = stillFor > 0.05 ? 1 : 0;
+        if (act && toyness < 0.05) flop = Math.random() < 0.5 ? -1 : 1;
+        toyness += (act - toyness) * Math.min(1, dt * (act ? 16 : 20));
+        lookX += (clamp(teddy.vx / 120, -1, 1) - lookX) * Math.min(1, dt * 12);
         const D = Dat(t);
 
         // the kid's eyes
@@ -1019,19 +1054,20 @@ export default {
         // the teddy
         let rot = 0;
         let bob = 0;
+        const toy = dead ? (seen ? 0 : toyness * Math.max(0, 1 - deadT * 4)) : toyness;
+        const alive = 1 - toy;
         if (!dead) {
-          const moving = Math.abs(teddy.vx) > 20;
-          rot = moving ? Math.sin(walk) * 0.16 + teddy.lean * 0.12 : 0;
-          bob = moving ? -Math.abs(Math.sin(walk)) * 2.5 : 0;
+          rot = (Math.sin(walk) * 0.16 + teddy.lean * 0.12) * alive;
+          bob = -Math.abs(Math.sin(walk)) * 2.5 * alive;
         } else {
           rot = Math.min(1.3, deadT * 5) * (tripped ? 1 : -1);
           bob = tripped ? Math.min(8, deadT * 30) : 0;
         }
         g.fillStyle = 'rgba(5,5,20,0.45)';
         g.beginPath();
-        g.ellipse(tx + 2, ty + 18, 13, 5, 0, 0, Math.PI * 2);
+        g.ellipse(tx + 2, ty + 18, 13 + toy * 3, 5, 0, 0, Math.PI * 2);
         g.fill();
-        drawSprite(g, teddyArt, tx, ty + bob, { rot });
+        drawTeddy(g, tx, ty + bob, rot, toy, dead);
         fx.render(g);
 
         // the star projector's stars drift across everything
@@ -1116,6 +1152,77 @@ export default {
         drawSprite(g, vignette, W / 2, H / 2);
       },
     };
+
+    function drawTeddy(g, x, y, rot, toy, dead) {
+      const alive = 1 - toy;
+      const step = Math.sin(walk);
+      const sit = toy * 5; // it plops down on its bottom
+      const P = teddyArt;
+      g.save();
+      g.translate(x, y);
+      if (rot) g.rotate(rot);
+      // feet: stepping in turn while it walks, splayed out in front when it sits
+      for (const s of [-1, 1]) {
+        const lift = Math.max(0, s * step) * 3.5 * alive;
+        drawSprite(g, P.foot, s * (7 + toy * 4), 18 - lift + toy * 2, { rot: s * -0.55 * toy });
+      }
+      // arms: swinging as it waddles, stuck stiffly out when it plays dead
+      for (const s of [-1, 1]) {
+        g.save();
+        g.translate(s * 8.5, -1 + sit * 0.7);
+        g.rotate(s * lerp(-0.5, -1.35, toy) + step * 0.55 * alive);
+        drawSprite(g, P.arm, 0, 6);
+        g.restore();
+      }
+      drawSprite(g, P.body, 0, 8 + sit * 0.6);
+      // red bow tie
+      const by = 2 + sit * 0.8;
+      g.fillStyle = '#d8323a';
+      g.beginPath();
+      g.moveTo(0, by);
+      g.lineTo(-5, by - 2.5);
+      g.lineTo(-5, by + 2.5);
+      g.closePath();
+      g.moveTo(0, by);
+      g.lineTo(5, by - 2.5);
+      g.lineTo(5, by + 2.5);
+      g.closePath();
+      g.fill();
+      g.fillStyle = '#9e1c24';
+      g.beginPath();
+      g.arc(0, by, 1.5, 0, Math.PI * 2);
+      g.fill();
+      // head: bobbing and peering where it's going, or lolled to one side like a stuffed toy
+      g.translate(lookX * 1.5 * alive, -8 + sit + Math.cos(walk * 2) * 0.8 * alive);
+      g.rotate(flop * 0.3 * toy + lookX * 0.08 * alive);
+      drawSprite(g, P.head, 0, 0);
+      if (alive > 0.02) {
+        g.globalAlpha = alive;
+        const caught = dead && seen;
+        if (!dead && clock > blinkAt + 0.12) blinkAt = clock + 1.5 + Math.random() * 2.5;
+        const open = caught ? 1.25 : clock > blinkAt ? 0.15 : 1;
+        for (const s of [-1, 1]) {
+          g.fillStyle = '#fbf3df';
+          g.beginPath();
+          g.ellipse(s * 4.4, -2, 2.6, 2.8 * open, 0, 0, Math.PI * 2);
+          g.fill();
+          if (open > 0.5) {
+            g.fillStyle = '#120804';
+            g.beginPath();
+            g.arc(s * 4.4 + lookX * 1.1, -1.8, caught ? 1.1 : 1.6, 0, Math.PI * 2);
+            g.fill();
+            g.fillStyle = 'rgba(255,255,255,0.9)';
+            g.beginPath();
+            g.arc(s * 4.4 + lookX * 1.1 - 0.5, -2.4, 0.5, 0, Math.PI * 2);
+            g.fill();
+          }
+        }
+        drawSprite(g, P.smile, 0, 6.3);
+        g.globalAlpha = 1;
+      }
+      if (toy > 0.02) drawSprite(g, P.toyFace, 0, 0, { alpha: toy });
+      g.restore();
+    }
 
     function bubble(g, x, y, text, color, s) {
       g.fillStyle = 'rgba(250,246,235,0.92)';
