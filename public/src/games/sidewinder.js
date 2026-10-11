@@ -1,8 +1,8 @@
 // Sidewinder — a snake slithering across a desert floor at golden hour. You don't strafe: ← and →
 // turn the snake's head, and it never stops moving forward. Its body follows exactly where the head
 // has been and grows longer every second, so you have to keep finding open sand without biting your
-// own tail. Cacti and the rocky rim are deadly, scorpions dig up out of the sand (a swirl of sand
-// warns you first) and, later, tumbleweeds roll across the dunes.
+// own tail. The only obstacle is scorpions: they dig up out of the sand (a swirl and a filling red
+// ring warn you first) and glow red while they're out. The rocky rim just bounces the snake back.
 
 import {
   createParticles,
@@ -26,7 +26,7 @@ const NECK = 26; // the head can't bite the first stretch of its own neck
 const SEG = 3; // a body point every 3 units of travel
 const OMEGA = 2.6; // full turn rate, radians per second
 const SCORP_WARN = 1.5;
-const WEED_WARN = 1.3;
+const SCORP_R = 17; // sting radius, drawn as the red danger ring
 
 const speedAt = (t) => lerp(125, 172, progress(t, 60, 1.2));
 const lengthAt = (t) => 200 + 1450 * progress(t, 60, 1.25);
@@ -284,68 +284,6 @@ function paintDiamond() {
   });
 }
 
-function paintCactus(rng) {
-  const R = 16;
-  return makeSprite(R * 2 + 8, R * 2 + 8, (g) => {
-    const ribs = 12;
-    const body = g.createRadialGradient(-R * 0.35, -R * 0.4, 1, 0, 0, R);
-    body.addColorStop(0, '#9bd36a');
-    body.addColorStop(0.6, '#4f9a3c');
-    body.addColorStop(1, '#245a22');
-    g.fillStyle = body;
-    g.beginPath();
-    for (let k = 0; k <= ribs * 2; k++) {
-      const a = (k / (ribs * 2)) * Math.PI * 2;
-      const r = k % 2 ? R * 0.9 : R;
-      if (k === 0) g.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-      else g.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-    }
-    g.fill();
-    g.strokeStyle = 'rgba(20,60,20,0.55)';
-    g.lineWidth = 0.9;
-    for (let k = 0; k < ribs; k++) {
-      const a = ((k + 0.5) / ribs) * Math.PI * 2;
-      g.beginPath();
-      g.moveTo(Math.cos(a) * 3, Math.sin(a) * 3);
-      g.lineTo(Math.cos(a) * R * 0.9, Math.sin(a) * R * 0.9);
-      g.stroke();
-    }
-    // spines along each rib
-    g.strokeStyle = 'rgba(255,248,215,0.9)';
-    g.lineWidth = 0.6;
-    for (let k = 0; k < ribs; k++) {
-      const a = (k / ribs) * Math.PI * 2;
-      for (const d of [0.45, 0.7, 0.95]) {
-        const x = Math.cos(a) * R * d;
-        const y = Math.sin(a) * R * d;
-        g.beginPath();
-        for (const s of [-0.7, 0, 0.7]) {
-          g.moveTo(x, y);
-          g.lineTo(x + Math.cos(a + s) * 3.5, y + Math.sin(a + s) * 3.5);
-        }
-        g.stroke();
-      }
-    }
-    // a magenta bloom on top
-    const petals = 7;
-    const hue = rng.pick([['#ff6fb0', '#c22a74'], ['#ffd25a', '#e07a10'], ['#ff8a5a', '#c43a1c']]);
-    for (let k = 0; k < petals; k++) {
-      const a = (k / petals) * Math.PI * 2;
-      const pg = g.createRadialGradient(0, 0, 0, Math.cos(a) * 3, Math.sin(a) * 3, 5);
-      pg.addColorStop(0, hue[0]);
-      pg.addColorStop(1, hue[1]);
-      g.fillStyle = pg;
-      g.beginPath();
-      g.ellipse(Math.cos(a) * 3.6, Math.sin(a) * 3.6, 3.4, 1.9, a, 0, Math.PI * 2);
-      g.fill();
-    }
-    g.fillStyle = '#fff2a0';
-    g.beginPath();
-    g.arc(0, 0, 1.8, 0, Math.PI * 2);
-    g.fill();
-  });
-}
-
 function paintScorpion() {
   // facing up (−y), tail curled over its back
   return makeSprite(40, 44, (g) => {
@@ -425,43 +363,13 @@ function paintScorpion() {
   });
 }
 
-function paintTumbleweed(rng) {
-  const R = 18;
-  return makeSprite(R * 2 + 4, R * 2 + 4, (g) => {
-    const fill = g.createRadialGradient(-4, -4, 0, 0, 0, R);
-    fill.addColorStop(0, 'rgba(170,110,50,0.6)');
-    fill.addColorStop(1, 'rgba(90,50,20,0.4)');
-    g.fillStyle = fill;
-    g.beginPath();
-    g.arc(0, 0, R, 0, Math.PI * 2);
-    g.fill();
-    for (let i = 0; i < 46; i++) {
-      g.strokeStyle = rng.pick(['#6a3c14', '#8a5420', '#a8722e', '#4e2a0c', '#3a1e08']);
-      g.lineWidth = rng.range(0.6, 1.4);
-      const a = rng.range(0, Math.PI * 2);
-      const r = rng.range(R * 0.3, R * 0.95);
-      g.beginPath();
-      g.arc(rng.range(-4, 4), rng.range(-4, 4), r, a, a + rng.range(0.8, 2.4));
-      g.stroke();
-    }
-    g.strokeStyle = 'rgba(255,225,160,0.6)';
-    g.lineWidth = 0.7;
-    for (let i = 0; i < 10; i++) {
-      const a = rng.range(Math.PI, Math.PI * 1.6);
-      g.beginPath();
-      g.arc(0, 0, rng.range(R * 0.5, R * 0.9), a, a + 0.6);
-      g.stroke();
-    }
-  });
-}
-
 // ---------- the game ----------
 
 export default {
   id: 'sidewinder',
   title: 'Sidewinder',
   emoji: '🐍',
-  tagline: '← and → turn the snake; it never stops slithering and grows longer every second. Don’t bite your own body, and keep clear of the rocks, cacti, scorpions and tumbleweeds.',
+  tagline: '← and → turn the snake; it never stops slithering, grows longer every second and bounces off the rocks. Don’t bite your own body, and never touch a red-glowing scorpion.',
   colors: { bg: '#7a3420', fg: '#fff3dc', accent: '#3fd1bd' },
 
   // Desert psytrance in D Phrygian dominant (the "snake charmer" scale: D E♭ F♯ G A B♭ C), 140 BPM:
@@ -504,11 +412,9 @@ export default {
     const desert = paintDesert(W, H, art);
     const headArt = paintHead();
     const diamond = paintDiamond();
-    const cactusArt = [paintCactus(art), paintCactus(art), paintCactus(art)];
     const scorpArt = paintScorpion();
-    const weedArt = [paintTumbleweed(art), paintTumbleweed(art)];
     const sunGlow = glowSprite('rgba(255,190,110,1)', 160);
-    const amberGlow = glowSprite('rgba(255,150,60,1)', 30);
+    const dangerGlow = glowSprite('rgba(255,40,30,1)', 30);
     const tealGlow = glowSprite('rgba(90,255,220,1)', 24);
     const vignette = vignetteSprite(W, H, 0.5, '70,20,5');
     const fx = createParticles();
@@ -537,34 +443,15 @@ export default {
       travelled = (back.length - 1) * SEG;
     }
 
-    // ---- cacti, placed once, away from the opening stretch ----
-    const cacti = [];
-    for (let tries = 0; cacti.length < 3 && tries < 200; tries++) {
-      const x = plan.range(AX0 + 40, AX1 - 40);
-      const y = plan.range(AY0 + 50, AY1 - 50);
-      if (Math.hypot(x - hx, y - hy) < 260 || (Math.abs(x - hx) < 60 && y > hy - 330)) continue; // clear of the opening seconds
-      if (cacti.some((c) => Math.hypot(c.x - x, c.y - y) < 110)) continue;
-      cacti.push({ x, y, r: 13, art: cacti.length % cactusArt.length, rot: plan.range(0, 6) });
-    }
-
-    // ---- scorpions and tumbleweeds, planned up front ----
+    // ---- scorpions, planned up front ----
     const scorpPlan = [];
     for (let t = 5; t < 58; ) {
       const p = progress(t, 60, 1.1);
-      scorpPlan.push({ t, x: plan.range(AX0 + 26, AX1 - 26), y: plan.range(AY0 + 30, AY1 - 26), life: plan.range(lerp(8, 11, p), lerp(10, 14, p)), rot: plan.range(0, Math.PI * 2) });
-      t += plan.range(lerp(3.2, 1.5, p), lerp(4.0, 2.0, p));
-    }
-    const weedPlan = [];
-    for (let t = 18; t < 58; ) {
-      const p = progress(t, 60, 1.1);
-      const dir = plan.chance(0.5) ? 1 : -1;
-      weedPlan.push({ t, dir, y: plan.range(AY0 + 40, AY1 - 30), speed: plan.range(lerp(105, 135, p), lerp(135, 170, p)), art: plan.int(0, 1), bob: plan.range(0, 6) });
-      t += plan.range(lerp(5.2, 2.4, p), lerp(6.5, 3.2, p));
+      scorpPlan.push({ t, x: plan.range(AX0 + 28, AX1 - 28), y: plan.range(AY0 + 30, AY1 - 28), life: plan.range(lerp(8, 11, p), lerp(10, 14, p)), rot: plan.range(0, Math.PI * 2) });
+      t += plan.range(lerp(2.6, 1.1, p), lerp(3.4, 1.5, p));
     }
     let nextScorp = 0;
-    let nextWeed = 0;
     const scorps = [];
-    const weeds = [];
     let clock = 0;
     let tongue = 0;
 
@@ -645,7 +532,7 @@ export default {
         // scorpions: warned by a sand swirl, then out for a while, then back under
         while (nextScorp < scorpPlan.length && scorpPlan[nextScorp].t <= t) {
           const s = scorpPlan[nextScorp++];
-          const tooClose = Math.hypot(s.x - hx, s.y - hy) < 110 || nearBody(s.x, s.y, 26) || cacti.some((c) => Math.hypot(c.x - s.x, c.y - s.y) < 44) || scorps.some((o) => Math.hypot(o.x - s.x, o.y - s.y) < 44);
+          const tooClose = Math.hypot(s.x - hx, s.y - hy) < 110 || nearBody(s.x, s.y, 28) || scorps.some((o) => Math.hypot(o.x - s.x, o.y - s.y) < 50);
           if (!tooClose) scorps.push({ ...s, age: 0 });
         }
         for (let i = scorps.length - 1; i >= 0; i--) {
@@ -662,39 +549,35 @@ export default {
           }
         }
 
-        // tumbleweeds: an arrow at the edge, then they roll across
-        while (nextWeed < weedPlan.length && weedPlan[nextWeed].t <= t) {
-          const w = weedPlan[nextWeed++];
-          weeds.push({ ...w, age: 0, x: w.dir > 0 ? -24 : W + 24, spin: 0 });
-        }
-        for (let i = weeds.length - 1; i >= 0; i--) {
-          const w = weeds[i];
-          w.age += dt;
-          if (w.age < WEED_WARN) continue;
-          w.x += w.dir * w.speed * dt;
-          w.spin += (w.dir * w.speed * dt) / 16;
-          if (Math.random() < 0.3) dust.burst(w.x - w.dir * 12, w.y + 12, { count: 1, speed: 20, life: 0.7, size: 4, round: true, drag: 2, colors: ['rgba(240,200,140,0.6)'] });
-          if ((w.dir > 0 && w.x > W + 30) || (w.dir < 0 && w.x < -30)) weeds.splice(i, 1);
-        }
-
         fx.update(dt);
         dust.update(dt);
 
         // ---- what kills you: only ever the head ----
-        if (t < 2.2) {
-          // a grace period: the rim nudges the snake back instead of stopping it
-          const m = HEAD_R + 2;
-          if (hx < AX0 + m || hx > AX1 - m) {
-            heading = Math.PI - heading;
-            hx = clamp(hx, AX0 + m, AX1 - m);
-          }
-          if (hy < AY0 + m || hy > AY1 - m) {
-            heading = -heading;
-            hy = clamp(hy, AY0 + m, AY1 - m);
-          }
+        // the rocky rim is harmless: the snake glances off it like a ball off a wall
+        const m = HEAD_R + 2;
+        let bounced = false;
+        if (hx < AX0 + m || hx > AX1 - m) {
+          heading = Math.PI - heading;
+          hx = clamp(hx, AX0 + m, AX1 - m);
+          bounced = true;
         }
-        if (hx < AX0 + HEAD_R * 0.6 || hx > AX1 - HEAD_R * 0.6 || hy < AY0 + HEAD_R * 0.6 || hy > AY1 - HEAD_R * 0.6) {
-          return die(this, 'Slithered head first into the rocks.');
+        if (hy < AY0 + m || hy > AY1 - m) {
+          heading = -heading;
+          hy = clamp(hy, AY0 + m, AY1 - m);
+          bounced = true;
+        }
+        if (bounced) {
+          // a head-on hit glances off at an angle (towards the roomier side) instead of doubling back
+          // straight onto the body
+          const nx = hx < AX0 + m + 0.5 ? 1 : hx > AX1 - m - 0.5 ? -1 : 0;
+          const ny = hy < AY0 + m + 0.5 ? 1 : hy > AY1 - m - 0.5 ? -1 : 0;
+          const na = Math.atan2(ny, nx);
+          let off = Math.atan2(Math.sin(heading - na), Math.cos(heading - na));
+          if (Math.abs(off) < 1.1) {
+            const side = Math.abs(off) > 0.02 ? Math.sign(off) : nx ? (hy < (AY0 + AY1) / 2 ? 1 : -1) * nx : (hx < (AX0 + AX1) / 2 ? -1 : 1) * ny;
+            heading = na + side * 1.1;
+          }
+          fx.burst(hx, hy, { count: 8, speed: 70, life: 0.5, size: 3, round: true, drag: 3, colors: ['#f6d29a', '#d8a062'] });
         }
         for (let i = start; t >= 2.2 && i < px.length; i++) {
           if (travelled - pc[i] < NECK) break;
@@ -703,17 +586,9 @@ export default {
           const r = HEAD_R + bodyR(i) - 4;
           if (dx * dx + dy * dy < r * r) return die(this, 'Bit your own tail.');
         }
-        for (const c of cacti) {
-          if (Math.hypot(c.x - hx, c.y - hy) < c.r + HEAD_R - 2) return die(this, 'Got a snout full of cactus spines.');
-        }
         for (const s of scorps) {
           if (s.age < SCORP_WARN || s.age > SCORP_WARN + s.life) continue;
-          if (Math.hypot(s.x - hx, s.y - hy) < 14 + HEAD_R - 2) return die(this, 'Stung by a scorpion.');
-        }
-        for (const w of weeds) {
-          if (w.age < WEED_WARN) continue;
-          const wy = w.y + Math.abs(Math.sin(w.age * 6 + w.bob)) * -4;
-          if (Math.hypot(w.x - hx, wy - hy) < 16 + HEAD_R - 2) return die(this, 'Bowled over by a tumbleweed.');
+          if (Math.hypot(s.x - hx, s.y - hy) < SCORP_R + HEAD_R - 3) return die(this, 'Stung by a scorpion.');
         }
       },
 
@@ -755,15 +630,6 @@ export default {
             g.fill();
           }
         }
-
-        // cactus shadows (sun low in the upper left), then the cacti
-        for (const c of cacti) {
-          g.fillStyle = 'rgba(90,35,10,0.28)';
-          g.beginPath();
-          g.ellipse(c.x + 12, c.y + 10, c.r * 1.35, c.r * 0.8, 0.65, 0, Math.PI * 2);
-          g.fill();
-        }
-        for (const c of cacti) drawSprite(g, cactusArt[c.art], c.x, c.y, { size: c.r * 2.5, rot: c.rot });
 
         dust.render(g);
 
@@ -816,46 +682,28 @@ export default {
           const k = rise * sink;
           if (k <= 0) continue;
           const wob = Math.sin(clock * 9 + s.rot * 3) * 0.08;
+          // a pulsing red danger halo and ring: this is the thing to avoid
+          const pulse = 0.75 + 0.25 * Math.sin(clock * 7 + s.rot);
           g.globalCompositeOperation = 'lighter';
-          drawSprite(g, amberGlow, s.x, s.y, { size: 64, alpha: 0.34 * k });
+          drawSprite(g, dangerGlow, s.x, s.y, { size: 86, alpha: 0.55 * k * pulse });
           g.globalCompositeOperation = 'source-over';
+          g.fillStyle = `rgba(220,20,20,${0.22 * k})`;
+          g.beginPath();
+          g.arc(s.x, s.y, SCORP_R + 4, 0, Math.PI * 2);
+          g.fill();
+          g.strokeStyle = `rgba(255,40,30,${0.9 * k * pulse})`;
+          g.lineWidth = 2.6;
+          g.setLineDash([5, 4]);
+          g.lineDashOffset = -clock * 12;
+          g.beginPath();
+          g.arc(s.x, s.y, SCORP_R + 4, 0, Math.PI * 2);
+          g.stroke();
+          g.setLineDash([]);
           g.fillStyle = `rgba(80,30,10,${0.3 * k})`;
           g.beginPath();
           g.ellipse(s.x + 5, s.y + 5, 13 * k, 11 * k, 0, 0, Math.PI * 2);
           g.fill();
-          drawSprite(g, scorpArt, s.x, s.y, { rot: s.rot + wob, size: 42 * (0.5 + 0.5 * k), alpha: Math.min(1, k * 1.5) });
-        }
-
-        // tumbleweeds and their warnings
-        for (const w of weeds) {
-          if (w.age < WEED_WARN) {
-            const blink = 0.55 + 0.45 * Math.sin(w.age * 16);
-            const ex = w.dir > 0 ? AX0 + 6 : AX1 - 6;
-            g.fillStyle = `rgba(255,236,190,${0.75 * blink})`;
-            for (let k = 0; k < 3; k++) {
-              const x = ex + w.dir * k * 9;
-              g.beginPath();
-              g.moveTo(x, w.y - 7);
-              g.lineTo(x + w.dir * 7, w.y);
-              g.lineTo(x, w.y + 7);
-              g.lineTo(x + w.dir * 2.5, w.y);
-              g.closePath();
-              g.fill();
-            }
-            g.strokeStyle = `rgba(255,236,190,${0.18 * blink})`;
-            g.lineWidth = 26;
-            g.beginPath();
-            g.moveTo(AX0, w.y);
-            g.lineTo(AX1, w.y);
-            g.stroke();
-            continue;
-          }
-          const hop = Math.abs(Math.sin(w.age * 6 + w.bob)) * 4;
-          g.fillStyle = 'rgba(90,35,10,0.25)';
-          g.beginPath();
-          g.ellipse(w.x + 7, w.y + 10, 19, 8, 0, 0, Math.PI * 2);
-          g.fill();
-          drawSprite(g, weedArt[w.art], w.x, w.y - hop, { rot: w.spin, size: 40 });
+          drawSprite(g, scorpArt, s.x, s.y, { rot: s.rot + wob, size: 48 * (0.5 + 0.5 * k), alpha: Math.min(1, k * 1.5) });
         }
 
         fx.render(g);
