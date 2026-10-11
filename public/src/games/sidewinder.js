@@ -1,8 +1,9 @@
 // Sidewinder — a snake slithering across a desert floor at golden hour. You don't strafe: ← and →
 // turn the snake's head, and it never stops moving forward. Its body follows exactly where the head
 // has been and grows longer every second, so you have to keep finding open sand without biting your
-// own tail. The only obstacle is scorpions: they dig up out of the sand (a swirl and a filling red
-// ring warn you first) and glow red while they're out. The rocky rim just bounces the snake back.
+// own tail. The only obstacle is fire: flames flare up out of cracks in the scorching sand (smoke,
+// sparks and a filling red ring warn you first), burn for a while and die down. The rocky rim just
+// bounces the snake back.
 
 import {
   createParticles,
@@ -25,8 +26,8 @@ const BODY_R = 7.5;
 const NECK = 26; // the head can't bite the first stretch of its own neck
 const SEG = 3; // a body point every 3 units of travel
 const OMEGA = 2.6; // full turn rate, radians per second
-const SCORP_WARN = 1.5;
-const SCORP_R = 17; // sting radius, drawn as the red danger ring
+const FIRE_WARN = 1.5;
+const FIRE_R = 17; // burn radius, drawn as the red danger ring
 
 const speedAt = (t) => lerp(125, 172, progress(t, 60, 1.2));
 const lengthAt = (t) => 200 + 1450 * progress(t, 60, 1.25);
@@ -284,83 +285,69 @@ function paintDiamond() {
   });
 }
 
-function paintScorpion() {
-  // facing up (−y), tail curled over its back
-  return makeSprite(40, 44, (g) => {
-    const dark = '#2b130b';
-    const shell = (x, y, rx, ry) => {
-      const sg = g.createRadialGradient(x - rx * 0.4, y - ry * 0.4, 0, x, y, Math.max(rx, ry));
-      sg.addColorStop(0, '#b0603a');
-      sg.addColorStop(0.6, '#5a2a16');
-      sg.addColorStop(1, dark);
-      g.fillStyle = sg;
-      g.beginPath();
-      g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-      g.fill();
-    };
-    // legs
-    g.strokeStyle = dark;
-    g.lineWidth = 1.6;
+function paintScorch() {
+  // the charred, cracked patch of sand a fire burns on
+  return makeSprite(56, 56, (g) => {
+    const sg = g.createRadialGradient(0, 0, 0, 0, 0, 26);
+    sg.addColorStop(0, 'rgba(40,14,6,0.95)');
+    sg.addColorStop(0.55, 'rgba(70,26,10,0.75)');
+    sg.addColorStop(1, 'rgba(110,50,20,0)');
+    g.fillStyle = sg;
+    g.beginPath();
+    g.arc(0, 0, 26, 0, Math.PI * 2);
+    g.fill();
+    // glowing cracks
+    g.strokeStyle = '#ff7a1a';
+    g.lineWidth = 1.2;
     g.lineCap = 'round';
-    for (const s of [-1, 1]) {
-      for (let k = 0; k < 4; k++) {
-        const y = -2 + k * 3.6;
-        g.beginPath();
-        g.moveTo(s * 4, y);
-        g.lineTo(s * 10, y - 2 + k * 0.6);
-        g.lineTo(s * 13, y + 3 + k * 1.2);
-        g.stroke();
-      }
-    }
-    // pincers
-    for (const s of [-1, 1]) {
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2 + 0.3;
       g.beginPath();
-      g.moveTo(s * 3, -7);
-      g.quadraticCurveTo(s * 10, -10, s * 9, -15);
+      g.moveTo(Math.cos(a) * 3, Math.sin(a) * 3);
+      g.lineTo(Math.cos(a + 0.25) * 10, Math.sin(a + 0.25) * 10);
+      g.lineTo(Math.cos(a - 0.1) * 17, Math.sin(a - 0.1) * 17);
       g.stroke();
-      shell(s * 9, -17, 4, 3.6);
-      g.fillStyle = dark;
+    }
+    // embers
+    for (let k = 0; k < 9; k++) {
+      const a = k * 2.4;
+      const r = 4 + (k % 4) * 3.5;
+      g.fillStyle = k % 2 ? '#ffb23a' : '#e8401c';
       g.beginPath();
-      g.moveTo(s * 7, -19);
-      g.lineTo(s * 8.5, -23);
-      g.lineTo(s * 10, -19.5);
-      g.fill();
-      g.beginPath();
-      g.moveTo(s * 10.5, -19);
-      g.lineTo(s * 12.5, -22.5);
-      g.lineTo(s * 12.5, -18);
+      g.arc(Math.cos(a) * r, Math.sin(a) * r, 1.4, 0, Math.PI * 2);
       g.fill();
     }
-    // body segments
-    shell(0, -6, 4.5, 3.6);
-    for (let k = 0; k < 4; k++) shell(0, -1 + k * 3.6, 5.6 - k * 0.3, 2.6);
-    // tail arching back over the body
-    const tail = [
-      [0, 13],
-      [0, 16.5],
-      [0.5, 19.5],
-      [-0.5, 16],
-      [-1, 11.5],
-      [-1, 7],
-    ];
-    for (let k = 0; k < tail.length; k++) shell(tail[k][0], tail[k][1], 2.6 - k * 0.15, 2.2);
-    // stinger
-    g.fillStyle = '#f2a33a';
-    g.beginPath();
-    g.ellipse(-1, 4.5, 2.2, 2.8, 0, 0, Math.PI * 2);
-    g.fill();
-    g.fillStyle = '#1a0a05';
-    g.beginPath();
-    g.moveTo(-2.5, 3.5);
-    g.lineTo(-1, -1.5);
-    g.lineTo(0.5, 3.5);
-    g.fill();
-    // glints
-    g.fillStyle = 'rgba(255,215,170,0.5)';
-    g.beginPath();
-    g.ellipse(-1.5, -7, 1.5, 0.8, -0.4, 0, Math.PI * 2);
-    g.fill();
   });
+}
+
+// one licking tongue of flame, base at (x, y), drawn fresh each frame so it flickers
+function flameTongue(g, x, y, w, h, sway, color) {
+  g.fillStyle = color;
+  g.beginPath();
+  g.moveTo(x - w, y);
+  g.bezierCurveTo(x - w * 1.1, y - h * 0.45, x + sway * 0.4 - w * 0.5, y - h * 0.7, x + sway, y - h);
+  g.bezierCurveTo(x + sway * 0.4 + w * 0.5, y - h * 0.7, x + w * 1.1, y - h * 0.45, x + w, y);
+  g.quadraticCurveTo(x, y + w * 0.55, x - w, y);
+  g.fill();
+}
+
+function drawFire(g, x, y, k, clock, seed) {
+  // three overlapping tongues, each a red / orange / yellow stack
+  const tongues = [
+    [-6, 0.75, 0],
+    [6, 0.8, 1.7],
+    [0, 1, 3.1],
+  ];
+  for (const [dx, hk, ph] of tongues) {
+    const f = Math.sin(clock * 11 + seed + ph) * 0.5 + Math.sin(clock * 17 + seed * 2 + ph) * 0.5;
+    const h = (30 + 6 * f) * hk * k;
+    const sway = Math.sin(clock * 6 + seed + ph) * 4 * k;
+    const bx = x + dx * k;
+    const by = y + 6 * k;
+    flameTongue(g, bx, by, 9 * k, h, sway, '#d8301a');
+    flameTongue(g, bx, by, 6.5 * k, h * 0.72, sway * 0.8, '#ff8c1a');
+    flameTongue(g, bx, by, 3.8 * k, h * 0.45, sway * 0.6, '#ffe46a');
+  }
 }
 
 // ---------- the game ----------
@@ -369,7 +356,7 @@ export default {
   id: 'sidewinder',
   title: 'Sidewinder',
   emoji: '🐍',
-  tagline: '← and → turn the snake; it never stops slithering, grows longer every second and bounces off the rocks. Don’t bite your own body, and never touch a red-glowing scorpion.',
+  tagline: '← and → turn the snake; it never stops slithering, grows longer every second and bounces off the rocks. Don’t bite your own body, and keep out of the flames that flare up from the sand.',
   colors: { bg: '#7a3420', fg: '#fff3dc', accent: '#3fd1bd' },
 
   // Desert psytrance in D Phrygian dominant (the "snake charmer" scale: D E♭ F♯ G A B♭ C), 140 BPM:
@@ -412,13 +399,14 @@ export default {
     const desert = paintDesert(W, H, art);
     const headArt = paintHead();
     const diamond = paintDiamond();
-    const scorpArt = paintScorpion();
+    const scorch = paintScorch();
     const sunGlow = glowSprite('rgba(255,190,110,1)', 160);
     const dangerGlow = glowSprite('rgba(255,40,30,1)', 30);
     const tealGlow = glowSprite('rgba(90,255,220,1)', 24);
     const vignette = vignetteSprite(W, H, 0.5, '70,20,5');
     const fx = createParticles();
     const dust = createParticles();
+    const sparks = createParticles();
 
     // ---- the snake: head plus a trail of points it has passed through ----
     let hx = W / 2;
@@ -443,15 +431,15 @@ export default {
       travelled = (back.length - 1) * SEG;
     }
 
-    // ---- scorpions, planned up front ----
-    const scorpPlan = [];
+    // ---- fires, planned up front ----
+    const firePlan = [];
     for (let t = 5; t < 58; ) {
       const p = progress(t, 60, 1.1);
-      scorpPlan.push({ t, x: plan.range(AX0 + 28, AX1 - 28), y: plan.range(AY0 + 30, AY1 - 28), life: plan.range(lerp(8, 11, p), lerp(10, 14, p)), rot: plan.range(0, Math.PI * 2) });
+      firePlan.push({ t, x: plan.range(AX0 + 28, AX1 - 28), y: plan.range(AY0 + 30, AY1 - 28), life: plan.range(lerp(8, 11, p), lerp(10, 14, p)), rot: plan.range(0, Math.PI * 2) });
       t += plan.range(lerp(2.6, 1.1, p), lerp(3.4, 1.5, p));
     }
-    let nextScorp = 0;
-    const scorps = [];
+    let nextFire = 0;
+    const fires = [];
     let clock = 0;
     let tongue = 0;
 
@@ -529,28 +517,32 @@ export default {
           });
         }
 
-        // scorpions: warned by a sand swirl, then out for a while, then back under
-        while (nextScorp < scorpPlan.length && scorpPlan[nextScorp].t <= t) {
-          const s = scorpPlan[nextScorp++];
-          const tooClose = Math.hypot(s.x - hx, s.y - hy) < 110 || nearBody(s.x, s.y, 28) || scorps.some((o) => Math.hypot(o.x - s.x, o.y - s.y) < 50);
-          if (!tooClose) scorps.push({ ...s, age: 0 });
+        // fires: warned by smoke and sparks from a glowing crack, then they burn a while and die down
+        while (nextFire < firePlan.length && firePlan[nextFire].t <= t) {
+          const s = firePlan[nextFire++];
+          const tooClose = Math.hypot(s.x - hx, s.y - hy) < 110 || nearBody(s.x, s.y, 28) || fires.some((o) => Math.hypot(o.x - s.x, o.y - s.y) < 50);
+          if (!tooClose) fires.push({ ...s, age: 0 });
         }
-        for (let i = scorps.length - 1; i >= 0; i--) {
-          const s = scorps[i];
+        for (let i = fires.length - 1; i >= 0; i--) {
+          const s = fires[i];
           const before = s.age;
           s.age += dt;
-          if (before < SCORP_WARN && s.age >= SCORP_WARN) {
-            fx.burst(s.x, s.y, { count: 22, speed: 110, life: 0.7, size: 3.5, round: true, drag: 3, colors: ['#f6d29a', '#d8a062', '#b9783e'] });
+          if (before < FIRE_WARN && s.age >= FIRE_WARN) {
+            sparks.burst(s.x, s.y, { count: 26, speed: 120, angle: -Math.PI / 2, spread: 2.4, life: 0.8, size: 3, round: true, drag: 2.5, gravity: -40, colors: ['#ffe46a', '#ff8c1a', '#ff5a1a'] });
           }
-          if (s.age > SCORP_WARN + s.life + 0.7) scorps.splice(i, 1);
-          else if (Math.random() < 0.15 && s.age < SCORP_WARN) {
-            const a = Math.random() * Math.PI * 2;
-            dust.burst(s.x + Math.cos(a) * 24, s.y + Math.sin(a) * 24, { count: 1, speed: 30, angle: a + Math.PI * 0.6, spread: 0.4, life: 0.5, size: 2.5, round: true, colors: ['rgba(255,226,170,0.9)'] });
+          const burning = s.age >= FIRE_WARN && s.age <= FIRE_WARN + s.life;
+          if (s.age > FIRE_WARN + s.life + 0.7) fires.splice(i, 1);
+          else if (s.age < FIRE_WARN ? Math.random() < 0.12 + 0.2 * (s.age / FIRE_WARN) : burning && Math.random() < 0.35) {
+            sparks.burst(s.x + (Math.random() - 0.5) * 14, s.y - (burning ? 14 : 0), { count: 1, speed: 45, angle: -Math.PI / 2, spread: 0.9, life: 0.9, size: 2.2, round: true, gravity: -30, colors: ['#ffd04a', '#ff7a1a'] });
+          }
+          if (s.age < FIRE_WARN + s.life + 0.7 && Math.random() < (burning ? 0.12 : 0.18)) {
+            dust.burst(s.x + (Math.random() - 0.5) * 10, s.y - (burning ? 26 : 2), { count: 1, speed: 22, angle: -Math.PI / 2, spread: 0.6, life: 1.1, size: 6, round: true, drag: 1, colors: ['rgba(90,70,60,0.45)', 'rgba(130,110,95,0.35)'] });
           }
         }
 
         fx.update(dt);
         dust.update(dt);
+        sparks.update(dt);
 
         // ---- what kills you: only ever the head ----
         // the rocky rim is harmless: the snake glances off it like a ball off a wall
@@ -586,9 +578,9 @@ export default {
           const r = HEAD_R + bodyR(i) - 4;
           if (dx * dx + dy * dy < r * r) return die(this, 'Bit your own tail.');
         }
-        for (const s of scorps) {
-          if (s.age < SCORP_WARN || s.age > SCORP_WARN + s.life) continue;
-          if (Math.hypot(s.x - hx, s.y - hy) < SCORP_R + HEAD_R - 3) return die(this, 'Stung by a scorpion.');
+        for (const s of fires) {
+          if (s.age < FIRE_WARN || s.age > FIRE_WARN + s.life) continue;
+          if (Math.hypot(s.x - hx, s.y - hy) < FIRE_R + HEAD_R - 3) return die(this, 'Slithered into the fire.');
         }
       },
 
@@ -596,38 +588,26 @@ export default {
         clock += dt;
         fx.update(dt);
         dust.update(dt);
+        sparks.update(dt);
       },
 
       render(g) {
         drawSprite(g, desert, W / 2, H / 2);
 
-        // scorpion holes and sand swirls under everything
-        for (const s of scorps) {
-          if (s.age < SCORP_WARN) {
-            const k = s.age / SCORP_WARN;
-            g.fillStyle = `rgba(120,55,20,${0.15 + 0.25 * k})`;
-            g.beginPath();
-            g.ellipse(s.x, s.y, 6 + 10 * k, 5 + 8 * k, 0, 0, Math.PI * 2);
-            g.fill();
-            g.strokeStyle = `rgba(255,240,205,${0.5 + 0.4 * k})`;
-            g.lineWidth = 1.6;
-            for (let a = 0; a < 3; a++) {
-              const a0 = clock * 5 + (a * Math.PI * 2) / 3;
-              g.beginPath();
-              g.arc(s.x, s.y, 14 + 6 * (1 - k), a0, a0 + 1.2);
-              g.stroke();
-            }
-            // ring filling up to the moment it comes out
-            g.strokeStyle = 'rgba(255,90,40,0.9)';
-            g.lineWidth = 2.2;
+        // scorched ground and the warning under everything
+        for (const s of fires) {
+          if (s.age < FIRE_WARN) {
+            const k = s.age / FIRE_WARN;
+            drawSprite(g, scorch, s.x, s.y, { size: 56 * (0.4 + 0.6 * k), alpha: 0.3 + 0.7 * k });
+            // ring filling up to the moment it catches
+            g.strokeStyle = 'rgba(255,60,30,0.95)';
+            g.lineWidth = 2.4;
             g.beginPath();
             g.arc(s.x, s.y, 22, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k);
             g.stroke();
           } else {
-            g.fillStyle = 'rgba(110,50,18,0.35)';
-            g.beginPath();
-            g.ellipse(s.x, s.y + 3, 13, 10, 0, 0, Math.PI * 2);
-            g.fill();
+            const end = s.age - FIRE_WARN - s.life;
+            drawSprite(g, scorch, s.x, s.y, { size: 56, alpha: end > 0 ? clamp(1 - end / 0.7, 0, 1) : 1 });
           }
         }
 
@@ -673,38 +653,30 @@ export default {
         g.fill();
         drawSprite(g, headArt, hx, hy, { rot: heading });
 
-        // scorpions
-        for (const s of scorps) {
-          if (s.age < SCORP_WARN) continue;
-          const out = s.age - SCORP_WARN;
+        // fires
+        for (const s of fires) {
+          if (s.age < FIRE_WARN) continue;
+          const out = s.age - FIRE_WARN;
           const rise = Math.min(1, out / 0.25);
-          const sink = s.age > SCORP_WARN + s.life ? clamp(1 - (s.age - SCORP_WARN - s.life) / 0.7, 0, 1) : 1;
+          const sink = s.age > FIRE_WARN + s.life ? clamp(1 - (s.age - FIRE_WARN - s.life) / 0.7, 0, 1) : 1;
           const k = rise * sink;
           if (k <= 0) continue;
-          const wob = Math.sin(clock * 9 + s.rot * 3) * 0.08;
-          // a pulsing red danger halo and ring: this is the thing to avoid
-          const pulse = 0.75 + 0.25 * Math.sin(clock * 7 + s.rot);
+          const pulse = 0.75 + 0.25 * Math.sin(clock * 9 + s.rot);
           g.globalCompositeOperation = 'lighter';
-          drawSprite(g, dangerGlow, s.x, s.y, { size: 86, alpha: 0.55 * k * pulse });
+          drawSprite(g, dangerGlow, s.x, s.y - 6, { size: 96, alpha: 0.6 * k * pulse });
           g.globalCompositeOperation = 'source-over';
-          g.fillStyle = `rgba(220,20,20,${0.22 * k})`;
-          g.beginPath();
-          g.arc(s.x, s.y, SCORP_R + 4, 0, Math.PI * 2);
-          g.fill();
-          g.strokeStyle = `rgba(255,40,30,${0.9 * k * pulse})`;
-          g.lineWidth = 2.6;
+          // the danger ring marks exactly how close is too close
+          g.strokeStyle = `rgba(255,50,30,${0.85 * k * pulse})`;
+          g.lineWidth = 2.4;
           g.setLineDash([5, 4]);
           g.lineDashOffset = -clock * 12;
           g.beginPath();
-          g.arc(s.x, s.y, SCORP_R + 4, 0, Math.PI * 2);
+          g.arc(s.x, s.y, FIRE_R + 4, 0, Math.PI * 2);
           g.stroke();
           g.setLineDash([]);
-          g.fillStyle = `rgba(80,30,10,${0.3 * k})`;
-          g.beginPath();
-          g.ellipse(s.x + 5, s.y + 5, 13 * k, 11 * k, 0, 0, Math.PI * 2);
-          g.fill();
-          drawSprite(g, scorpArt, s.x, s.y, { rot: s.rot + wob, size: 48 * (0.5 + 0.5 * k), alpha: Math.min(1, k * 1.5) });
+          drawFire(g, s.x, s.y, k, clock, s.rot * 3);
         }
+        sparks.render(g, true);
 
         fx.render(g);
 
