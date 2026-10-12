@@ -34,7 +34,7 @@ Everything else can change: the world, the character, what counts as a mistake, 
      - **Pleasant on a phone:** keep the high end soft (low-pass bright synths, keep hi-hats quiet with `hpf` around 6000–7000 and gain ≤ 0.06). Put kicks and basses at octave 2 or above (octave 1 is inaudible on phone speakers). Keep gains modest: pads and leads ~0.07–0.15, bass ~0.3–0.5, kick ~0.8.
      - `setup` defines the layers as `const`s; `song` is only the `arrange(...)` expression. Don't use `setcps`, `.play()` or `postgain`: the engine handles tempo, timing and volume.
      - `check-game` evaluates the song and fails it if it errors, isn't exactly 60s, uses samples or doesn't build. It can't hear it, so write carefully.
-   - **Tagline:** at most two sentences. It is the only explanation players get, so it must say what to do and what kills you.
+   - **Tagline: 70 characters at most**, so it fits in **2 lines** on a phone (`check-game` fails anything longer). It's the only explanation players get, so spend it on what to do and what ends the run, e.g. *"Walk uphill to keep the girder level, and never stand under a load."* Leave out flavour and details players discover by playing.
    - **Title:** ≤ 16 characters. Emoji: one that fits.
 4. **Check it:** `node scripts/check-game.mjs <id>` must pass (no crashes, no early deaths, deterministic, the simple bots mostly die well before 60s, and the song is valid). Then run `node scripts/check-game.mjs` for all games to make sure nothing else broke.
 5. **Schedule it:** add `'<id>'` to `GAMES` and `'<date YYYY-MM-DD>': '<id>'` to `SCHEDULE` in `public/src/schedule.js`, and append its row to `HISTORY.md`. The public site only publishes it the day before its date; until then it's only on the private preview.

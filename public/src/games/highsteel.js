@@ -720,7 +720,7 @@ export default {
   id: 'highsteel',
   title: 'High Steel',
   emoji: '🏗️',
-  tagline: 'You’re the counterweight on a girder hanging from a crane: walk uphill to keep it level as loads are lowered on and hooked off. Tip it too far and you slide off, and never stand where a load is coming down.',
+  tagline: 'Walk uphill to keep the girder level, and never stand under a load.',
   colors: { bg: '#1f4e5f', fg: '#fff4dc', accent: '#e0532f' },
 
   // A spy-thriller cue in 5/4 (3+3+2+2 eighths), 150 BPM, G minor: a kick, snare and staccato

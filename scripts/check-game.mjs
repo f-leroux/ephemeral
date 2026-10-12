@@ -8,7 +8,7 @@
 // Exits non-zero if any check fails. It does not judge fun, difficulty or how the music sounds.
 
 import { createRng, seedFrom } from '../public/src/engine/rng.js';
-import { GAMES } from '../public/src/schedule.js';
+import { GAMES, SCHEDULE } from '../public/src/schedule.js';
 import { createSfx } from '../public/src/engine/sound.js';
 import { createRequire, registerHooks } from 'node:module';
 
@@ -161,12 +161,21 @@ function play(game, seed, bot) {
 
 const REQUIRED = ['id', 'title', 'emoji', 'tagline', 'colors', 'create'];
 
+// The tagline must fit in 2 lines on a phone: measured in a browser, 70 characters always does,
+// even at 360px wide. Games scheduled before the rule existed keep their longer text.
+const TAGLINE_MAX = 70;
+const TAGLINE_RULE_FROM = '2026-10-13';
+
 async function check(id) {
   const problems = [];
   const game = (await import(`../public/src/games/${id}.js`)).default;
   for (const key of REQUIRED) if (!game?.[key]) problems.push(`missing "${key}" in the default export`);
   if (game.id !== id) problems.push(`id "${game.id}" doesn't match the file name "${id}"`);
   for (const c of ['bg', 'fg', 'accent']) if (!/^#[0-9a-f]{6}$/i.test(game.colors?.[c] ?? '')) problems.push(`colors.${c} must be a #rrggbb hex`);
+  const scheduled = Object.entries(SCHEDULE).find(([, gid]) => gid === id)?.[0];
+  if (game.tagline?.length > TAGLINE_MAX && !(scheduled < TAGLINE_RULE_FROM)) {
+    problems.push(`tagline is ${game.tagline.length} chars; keep it ≤ ${TAGLINE_MAX} so it fits in 2 lines on a phone`);
+  }
   if (game.title?.length > 16) problems.push(`title is ${game.title.length} chars; keep it ≤ 16 so the intro stays legible`);
   if (problems.length) return { id, problems, lines: [] };
 

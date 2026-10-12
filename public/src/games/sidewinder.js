@@ -356,7 +356,7 @@ export default {
   id: 'sidewinder',
   title: 'Sidewinder',
   emoji: '🐍',
-  tagline: '← and → turn the snake; it never stops slithering, grows longer every second and bounces off the rocks. Don’t bite your own body, and keep out of the flames that flare up from the sand.',
+  tagline: '← and → turn the snake. Don’t bite your own body or touch the flames.',
   colors: { bg: '#7a3420', fg: '#fff3dc', accent: '#3fd1bd' },
 
   // Desert psytrance in D Phrygian dominant (the "snake charmer" scale: D E♭ F♯ G A B♭ C), 140 BPM:
