@@ -2,8 +2,7 @@
 // of the trunk (the lumberjack hops round to it first), the chopped log flies off and the whole
 // tree drops one notch. Branches stick out of the trunk: never stand on a branch's side when it
 // comes down to head height. Your energy drains all the time and every chop tops it up, so you
-// have to chop faster and faster. Later, hard knots take two chops, and old iron spikes grown
-// into the trunk mean that log has to be chopped from the other side.
+// have to chop faster and faster. Later, hard knots take two chops.
 
 import {
   createParticles,
@@ -26,7 +25,7 @@ const JACK_X = TW / 2 + 36; // the lumberjack's distance from the trunk's centre
 const SAFE = 12; // the first logs are clear, so nothing can go wrong in the first 2s
 const GAIN = 0.085; // energy back per chop
 
-const drain = (t) => lerp(0.15, 0.48, progress(t, 60, 1.2)); // energy lost per second
+const drain = (t) => lerp(0.22, 0.6, progress(t, 60, 1.2)); // energy lost per second
 const cooldown = (t) => lerp(0.2, 0.11, clamp(t / 20, 0, 1)); // the fastest the axe can swing
 const rowTop = (k) => BASE - (k + 1) * SEG;
 
@@ -294,53 +293,6 @@ function paintKnot(cracked) {
         pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
         g.stroke();
       }
-    }
-  }, 2.5);
-}
-
-// old iron spikes the tree grew round, sticking out of its right-hand side (mirrored for the left)
-function paintSpikes() {
-  return makeSprite(44, 56, (g) => {
-    // the rusted plate they're nailed through
-    const plate = g.createLinearGradient(-20, 0, 2, 0);
-    plate.addColorStop(0, '#4a3a34');
-    plate.addColorStop(1, '#7c5a48');
-    g.fillStyle = plate;
-    g.beginPath();
-    g.moveTo(-20, -24);
-    g.lineTo(-2, -26);
-    g.lineTo(0, 26);
-    g.lineTo(-20, 24);
-    g.closePath();
-    g.fill();
-    g.fillStyle = 'rgba(190,90,40,0.55)';
-    for (const [x, y, r] of [[-14, -14, 4], [-8, 6, 5], [-15, 16, 3], [-6, -4, 2.5]]) {
-      g.beginPath();
-      g.arc(x, y, r, 0, Math.PI * 2);
-      g.fill();
-    }
-    // red warning stripes painted by some long-gone forester
-    g.fillStyle = '#d8342a';
-    g.fillRect(-19, -6, 18, 4);
-    g.fillRect(-19, 2, 18, 4);
-    for (const y of [-16, 0, 16]) {
-      const spike = g.createLinearGradient(0, y - 4, 0, y + 4);
-      spike.addColorStop(0, '#d9d4cc');
-      spike.addColorStop(0.5, '#8a8078');
-      spike.addColorStop(1, '#3e3632');
-      g.fillStyle = spike;
-      g.beginPath();
-      g.moveTo(-4, y - 4);
-      g.lineTo(21, y);
-      g.lineTo(-4, y + 4);
-      g.closePath();
-      g.fill();
-      g.fillStyle = '#2e2622';
-      g.beginPath();
-      g.arc(-6, y, 3.5, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = 'rgba(255,255,255,0.4)';
-      g.fillRect(-1, y - 2, 14, 1);
     }
   }, 2.5);
 }
@@ -670,7 +622,6 @@ export default {
     const branchArt = paintBranch();
     const knotArt = paintKnot(false);
     const crackArt = paintKnot(true);
-    const spikeArt = paintSpikes();
     const stump = paintStump();
     const jackIdle = paintJack(false);
     const jackSwing = paintJack(true);
@@ -688,27 +639,25 @@ export default {
     const mists = [];
     for (let i = 0; i < 5; i++) mists.push({ x: art.range(-100, W + 100), y: art.range(260, 560), v: art.range(5, 14), a: art.range(0.4, 0.8), s: art.range(200, 320) });
 
-    // ---- the tree, log by log, fixed in advance (branch side b, spike side n, chops needed) ----
+    // ---- the tree, log by log, fixed in advance (branch side b, chops needed) ----
     const segs = [];
     let made = 0;
     const makeSeg = () => {
       const i = made++;
       const u = clamp((i - SAFE) / 200, 0, 1);
-      const seg = { b: 0, n: 0, hits: 1, cracked: false, v: i % 3, shake: 0 };
+      const seg = { b: 0, hits: 1, cracked: false, v: i % 3, shake: 0 };
       if (i >= SAFE) {
         const roll = plan.next();
         const side = plan.chance(0.5) ? -1 : 1;
-        const pSpike = i >= 75 ? lerp(0.07, 0.14, u) : 0;
         const pKnot = i >= 40 ? lerp(0.1, 0.18, u) : 0;
         const pBranch = lerp(0.45, 0.75, u);
         const roll2 = plan.next();
-        if (roll < pSpike) seg.n = side;
-        else if (roll < pSpike + pKnot) seg.hits = 2;
+        if (roll < pKnot) seg.hits = 2;
         else if (roll2 < pBranch) seg.b = side;
       }
       // the log below must still be choppable from at least one side
       const prev = segs[segs.length - 1];
-      if (prev && ![-1, 1].some((s) => s !== prev.b && s !== prev.n && s !== seg.b)) seg.b = 0;
+      if (prev && ![-1, 1].some((s) => s !== prev.b && s !== seg.b)) seg.b = 0;
       segs.push(seg);
     };
     for (let i = 0; i < 12; i++) makeSeg();
@@ -740,10 +689,6 @@ export default {
       const seg = segs[0];
       const ex = CX + s * (TW / 2);
       if (seg.b === s) return die(game, 'Walked head-first into a branch.', 'branch');
-      if (seg.n === s) {
-        fx.burst(ex, rowTop(0) + SEG * 0.5, { count: 24, speed: 240, life: 0.5, size: 3, drag: 2, colors: ['#fff4b0', '#ffb040', '#ffffff'] });
-        return die(game, 'Your axe hit the old iron spikes in the trunk.', 'spikes');
-      }
       energy = Math.min(1, energy + GAIN);
       fx.burst(ex, rowTop(0) + SEG * 0.42, { count: 12, speed: 220, angle: s < 0 ? Math.PI : 0, spread: 1.6, life: 0.7, size: 3.5, drag: 1.5, gravity: 700, colors: CHIPS });
       if (seg.hits > 1) {
@@ -792,13 +737,6 @@ export default {
       // x is the trunk's centre, y the log's top edge
       g.drawImage(logArt[seg.v].canvas, x - TW / 2, y, TW, SEG);
       if (seg.hits > 1 || seg.cracked) drawSprite(g, seg.cracked ? crackArt : knotArt, x + 4, y + SEG * 0.5);
-      if (seg.n) {
-        g.save();
-        g.translate(x + seg.n * (TW / 2 + 2), y + SEG * 0.42);
-        g.scale(seg.n, 1);
-        drawSprite(g, spikeArt, 0, 0);
-        g.restore();
-      }
       if (seg.b) {
         g.save();
         g.translate(x + seg.b * (TW / 2 - 4), y + SEG * 0.42);
