@@ -2,7 +2,7 @@
 // wind. A boat can't sail into the wind, so it zigzags: it is always sailing diagonally up-left or
 // up-right, and the only thing you choose is when to tack (swing through the wind onto the other
 // diagonal). Tacking isn't instant: the boat swings over in a curve. Thread the rocks, channel
-// buoys, moored fishing boats and (later) fishing nets, and don't run ashore. From 20s the wind
+// buoys, moored fishing boats and (later) fishing nets, and don't run ashore. From 15s the wind
 // shifts back and forth, so one tack slants more sideways than the other.
 
 import {
@@ -20,7 +20,7 @@ const BOAT_Y = 540;
 const X0 = 180; // where the boat starts, already sailing up-right
 const K = 6; // how quickly the boat swings onto a new tack
 const SHORE = 30; // the narrowest the land at each side gets
-const INSET = 34; // how much further the coast can bulge into the channel
+const INSET = 42; // how much further the coast can bulge into the channel
 const RMIN = 92; // the reference course always stays between these
 const RMAX = 268;
 const STEP = 1 / 120;
@@ -31,10 +31,10 @@ const HULL = [
   [-13, 0, 6],
 ];
 
-const vyAt = (t) => lerp(112, 250, progress(t, 60, 1.15)); // forward speed up the channel
+const vyAt = (t) => lerp(124, 285, progress(t, 60, 1.15)); // forward speed up the channel
 // sideways speed on a tack (the boat gathers way over the first 2.5s)
-const latAt = (t) => lerp(108, 204, progress(t, 60, 1.1)) * Math.min(1, 0.25 + 0.3 * t);
-const shiftAt = (t, sign) => (t < 20 ? 0 : sign * 0.3 * Math.min(1, (t - 20) / 6) * Math.sin(0.5 * (t - 20)));
+const latAt = (t) => lerp(112, 214, progress(t, 60, 1.1)) * Math.min(1, 0.25 + 0.3 * t);
+const shiftAt = (t, sign) => (t < 15 ? 0 : sign * 0.36 * Math.min(1, (t - 15) / 6) * Math.sin(0.5 * (t - 15)));
 
 const FOAM = ['#ffffff', '#e6f7ff', '#bfe9ff'];
 
@@ -481,7 +481,7 @@ export default {
     // ---- the coastline: two smooth wiggles, straight at the start ----
     const ph = [plan.range(0, 6.28), plan.range(0, 6.28), plan.range(0, 6.28), plan.range(0, 6.28)];
     const insetAt = (D, a, b) => {
-      const ramp = clamp((D - 520) / 700, 0, 1);
+      const ramp = clamp((D - 520) / 600, 0, 1);
       return INSET * ramp * (0.5 + 0.5 * (0.62 * Math.sin(D / 230 + a) + 0.38 * Math.sin(D / 91 + b)));
     };
     const shoreL = (D) => SHORE + insetAt(D, ph[0], ph[1]);
@@ -546,8 +546,8 @@ export default {
       while (D < Dend) {
         const t = timeAtD(D);
         const p = progress(t, 60, 1);
-        const margin = lerp(22, 5, p);
-        const squeeze = lerp(0.2, 0.8, p);
+        const margin = lerp(18, 3, p);
+        const squeeze = lerp(0.3, 0.85, p);
         const L = shoreL(D);
         const R = shoreR(D);
         const roll = plan.next();
@@ -563,7 +563,7 @@ export default {
           }
           return null;
         };
-        if (t > 24 && roll < 0.14) {
+        if (t > 18 && roll < 0.15) {
           // a fishing net strung out from one shore on a line of floats
           const fromLeft = plan.chance(0.5);
           const len = plan.range(110, 190);
@@ -580,7 +580,7 @@ export default {
             floats.push({ x, D: fD, r: 6 });
           }
           if (ok && floats.length > 3) hazards.push({ kind: 'net', D, circles: floats, ph: plan.range(0, 6) });
-        } else if (t > 7 && roll < 0.36) {
+        } else if (t > 6 && roll < 0.37) {
           // a moored caïque, swinging at an angle on its mooring
           const ang = plan.range(-0.45, 0.45);
           const x = pickX(13);
@@ -609,7 +609,7 @@ export default {
             }
           }
         }
-        D += lerp(160, 66, p) * plan.range(0.75, 1.25);
+        D += lerp(140, 56, p) * plan.range(0.75, 1.25);
       }
       hazards.sort((a, b) => a.D - b.D);
     }
