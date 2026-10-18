@@ -1344,6 +1344,42 @@ export default {
         g.textAlign = 'center';
         g.fillStyle = gapAhead ? (ok ? '#a8ffb8' : '#ffb0a0') : 'rgba(255,233,196,0.7)';
         g.fillText(gapAhead ? (ok ? 'JUMP OK' : 'FASTER!') : 'SPEED', gx, gy + 19);
+
+        // the chase meter: how far behind the boulder is, the cart at the top, the boulder below
+        const mx = W - 24;
+        const my0 = H - 214;
+        const my1 = H - 30;
+        const near = clamp(1 - gap / 400, 0, 1);
+        const by2 = lerp(my1, my0 + 22, this.dead && deathKind === 'boulder' ? 1 : near);
+        g.fillStyle = 'rgba(20,14,24,0.75)';
+        g.beginPath();
+        g.roundRect(mx - 15, my0 - 18, 30, my1 - my0 + 44, 15);
+        g.fill();
+        g.strokeStyle = '#c8a050';
+        g.lineWidth = 2;
+        g.stroke();
+        g.lineWidth = 5;
+        g.strokeStyle = 'rgba(255,233,196,0.18)';
+        g.beginPath();
+        g.moveTo(mx, my0);
+        g.lineTo(mx, my1);
+        g.stroke();
+        const danger = near > 0.72 ? '#ff4a3a' : near > 0.45 ? '#ffb347' : '#7dff96';
+        g.strokeStyle = danger;
+        g.beginPath();
+        g.moveTo(mx, my0 + 10);
+        g.lineTo(mx, by2);
+        g.stroke();
+        if (near > 0.72 && !this.dead) {
+          g.globalCompositeOperation = 'lighter';
+          drawSprite(g, redGlow, mx, by2, { size: 44, alpha: 0.5 + 0.4 * Math.sin(clock * 14) });
+          g.globalCompositeOperation = 'source-over';
+        }
+        drawSprite(g, goldGlow, mx, my0, { size: 22, alpha: 0.6 });
+        drawSprite(g, cartArt, mx, my0, { size: 14 });
+        drawSprite(g, boulderArt, mx, by2, { size: 22 });
+        g.fillStyle = danger;
+        g.fillText(`${Math.max(0, Math.round(gap / 20))}m`, mx, my1 + 18);
       },
     };
     return game;
