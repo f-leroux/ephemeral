@@ -92,6 +92,10 @@ Rules for game modules:
 
 The daily routine follows [`DAILY.md`](DAILY.md).
 
+## Sounds
+
+The engine's cues (intro, countdown, GO, final-seconds heartbeat, death, fanfare) are synthesized in `public/src/engine/sound.js`. Some are replaced by recorded files made with ElevenLabs: drop the original in `sounds-src/` (name listed in `scripts/prepare-sounds.mjs`) and run `node scripts/prepare-sounds.mjs`, which matches its loudness to the synthesized cue and writes `public/sounds/<cue>.mp3`. A cue without a file keeps its synthesized sound.
+
 ## License
 
 Ephemeral is free software under the [GNU Affero General Public License v3.0 or later](LICENSE). Its music runs on [Strudel](https://strudel.cc), which is AGPL-3.0-or-later too. Because players use the game over the network, the site links to this source code from the Past games screen, as the AGPL requires.

@@ -21,6 +21,8 @@
 // but games should avoid continuous sounds: players find them annoying. Prefer one-shots.
 // Loops are stopped automatically when the run ends.
 
+import { VERSION } from '../build.js';
+
 const MUTE_KEY = 'ephemeral:muted';
 const MASTER = 0.7;
 
@@ -220,7 +222,7 @@ const pop = { wave: 'triangle', freq: 523.25, attack: 0.003, sustain: 0.04, rele
 const heart = { wave: 'sine', freq: 120, freqEnd: 80, attack: 0.003, sustain: 0.03, release: 0.15, volume: 0.55 };
 const tadaG = { wave: 'saw', freq: 392, sustain: 0.08, release: 0.15, volume: 0.12, lowpass: 1500 };
 const tadaC = { wave: 'saw', freq: 523.25, sustain: 0.3, release: 0.8, volume: 0.12, lowpass: 1500 };
-const CUES = {
+export const CUES = {
   // intro: a gentle breeze, then bells as the title snaps together
   swell: [[{ wave: 'noise', freq: 250, freqEnd: 900, attack: 1.4, sustain: 0.2, release: 1.3, volume: 0.14, lowpass: 600 }, {}]],
   chord: [1, 1.26, 1.5, 2].map((p, i) => [bells, { pitch: p, delay: i * 0.09 }]),
@@ -248,12 +250,40 @@ const CUES = {
   ],
 };
 
+// Recorded cues (made with ElevenLabs, sources in sounds-src/, prepared by
+// scripts/prepare-sounds.mjs) play instead of their synthesized voices. They load and decode in
+// the background from page load (an OfflineAudioContext can decode before the player taps
+// anything); until a file is ready, or if it fails to load, the synthesized cue plays.
+const RECORDED = ['swell', 'chord', 'beep', 'death', 'fanfare'];
+const recorded = new Map(); // cue name -> AudioBuffer
+const Offline = globalThis.OfflineAudioContext || globalThis.webkitOfflineAudioContext;
+if (globalThis.window && Offline) {
+  const decoder = new Offline(2, 1, 48000);
+  for (const name of RECORDED) {
+    fetch(new URL(`../../sounds/${name}.mp3?v=${VERSION}`, import.meta.url))
+      .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error(res.statusText))))
+      .then((data) => decoder.decodeAudioData(data))
+      .then((buffer) => recorded.set(name, buffer))
+      .catch(() => {}); // keeps the synthesized cue
+  }
+}
+
 let engineKit = null;
 let cueSounds = null;
 
 // Plays an engine cue. `at` delays the whole cue; `pitch` shifts it (the final ticks rise).
 export function playCue(name, { at = 0, pitch = 1 } = {}) {
   if (!ctx) return;
+  const buffer = recorded.get(name);
+  if (buffer) {
+    if (muted) return;
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.playbackRate.value = pitch;
+    src.connect(master);
+    src.start(ctx.currentTime + at);
+    return;
+  }
   if (!engineKit) {
     engineKit = createSfx();
     cueSounds = new Map();
