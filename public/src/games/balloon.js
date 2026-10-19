@@ -34,8 +34,8 @@ const LIFT = 280; // vertical acceleration per unit of heat away from neutral (0
 const DRAG = 1.5;
 const TILE = 160;
 
-const speedAt = (t) => lerp(60, 112, progress(t, 60, 1.2)); // the wind, carrying you east
-const ceilAt = (t) => lerp(14, 165, Math.pow(clamp((t - 3) / 57, 0, 1), 0.9)); // the storm's cloud base
+const speedAt = (t) => lerp(64, 122, progress(t, 60, 1.2)); // the wind, carrying you east
+const ceilAt = (t) => lerp(14, 185, Math.pow(clamp((t - 3) / 57, 0, 1), 0.9)); // the storm's cloud base
 
 function physics(s, dir, dt) {
   if (dir > 0) s.h = Math.min(1, s.h + HEAT_UP * dt);
@@ -610,15 +610,15 @@ export default {
         const hi = GROUND_TOP - BASKET_DY - BASKET_R - 52;
         if (seg >= len) {
           seg = 0;
-          len = plan.range(lerp(2.6, 1.6, p), lerp(4.2, 2.6, p));
-          const reach = lerp(140, 240, p);
+          len = plan.range(lerp(2.2, 1.3, p), lerp(3.6, 2.1, p));
+          const reach = lerp(170, 270, p);
           for (let k = 0; k < 6; k++) {
             tgt = clamp(s.y + plan.range(-1, 1) * reach, lo, hi);
             if (Math.abs(tgt - s.y) > 45) break;
           }
         }
         tgt = Math.max(tgt, lo);
-        const vyDes = clamp((tgt - s.y) * 1.1, -62, 62);
+        const vyDes = clamp((tgt - s.y) * 1.1, -72, 72);
         const ayDes = (vyDes - s.vy) * 2.5;
         const hDes = 0.5 - (ayDes + DRAG * s.vy) / LIFT;
         physics(s, hDes > s.h + 0.04 ? 1 : hDes < s.h - 0.04 ? -1 : 0, STEP);
@@ -708,8 +708,8 @@ export default {
       while (X < Xend) {
         const t = timeAtX(X);
         const p = progress(t, 60, 1);
-        const m = lerp(22, 7, p);
-        const slack = lerp(55, 10, p);
+        const m = lerp(17, 5, p);
+        const slack = lerp(40, 6, p);
         const roll = plan.next();
         const ry = refY[findIdx(X)];
         const addTower = () => {
@@ -737,7 +737,7 @@ export default {
           const spread = Math.ceil((n - 1) / 2) * 8;
           let above = plan.chance(0.6);
           for (let k = 0; k < 4; k++) {
-            const off = plan.range(lerp(80, 50, p), lerp(115, 75, p)) + k * 18;
+            const off = plan.range(lerp(65, 42, p), lerp(95, 62, p)) + k * 18;
             let y = above ? yr - ENV_R - off - spread : yr + BASKET_DY + off + spread;
             if (y - spread < ceilAt(tm) + 12 || y + spread > GROUND_TOP - 40) {
               above = !above;
@@ -751,8 +751,8 @@ export default {
           }
           return false;
         };
-        let step = lerp(140, 100, p) * plan.range(0.8, 1.25);
-        if (t > 20 && roll < 0.14) {
+        let step = lerp(120, 84, p) * plan.range(0.8, 1.25);
+        if (t > 17 && roll < 0.14) {
           // a wind turbine: pass over the rotor (or, if you dare, through its turning blades)
           const R = 38;
           const hub = refBottom(X - R - 4, X + R + 4) + m + R + 3 + plan.range(0, slack);
@@ -761,16 +761,16 @@ export default {
             if (clearStatic([{ x: X, y: hub, r: R + 3 }, { x0: X - 4, y0: hub, x1: X + 4, y1: 700 }], m)) hazards.push(o);
           }
           step += 40;
-        } else if (t > 11 && roll < 0.32 && t - lastFlock > 2.5) {
+        } else if (t > 9 && roll < 0.32 && t - lastFlock > 2.2) {
           if (addFlock(t)) lastFlock = t;
-        } else if (t > 15 && roll < 0.45) {
+        } else if (t > 13 && roll < 0.45) {
           // another balloon, bobbing up and down on the same wind
           const A = plan.range(12, lerp(22, 34, p));
           const w = plan.range(0.6, 1.1);
           const ph = plan.range(0, 6.28);
           let above = plan.chance(0.5);
           for (let k = 0; k < 3; k++) {
-            const off = plan.range(lerp(70, 45, p), lerp(110, 70, p)) + k * 16;
+            const off = plan.range(lerp(58, 38, p), lerp(90, 58, p)) + k * 16;
             const y = above ? ry - off - BASKET_DY - 30 - A : ry + BASKET_DY + off + 24 + A;
             const ok = above ? y - A - 28 > ceilAt(t) + 10 : y + A + BASKET_DY + 18 < GROUND_TOP - 20;
             if (!ok) {
@@ -783,7 +783,7 @@ export default {
               break;
             }
           }
-        } else if (t > 6 && roll < 0.6) {
+        } else if (t > 5 && roll < 0.6) {
           // a power line on two pylons: stay above the wire all the way across
           const span = plan.range(110, 170);
           const sag = plan.range(12, 22);
@@ -805,7 +805,7 @@ export default {
         } else {
           addTower();
           // later on, something above you at the same time as a tower below
-          if (t > 24 && plan.chance(0.4) && t - lastFlock > 2.5 && addFlock(t)) lastFlock = t;
+          if (t > 20 && plan.chance(0.5) && t - lastFlock > 2.2 && addFlock(t)) lastFlock = t;
         }
         X += step;
       }
