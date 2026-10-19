@@ -3,9 +3,11 @@
 // is. Hold right to fire the burner, hold left to pull the vent; let go and the air slowly cools so
 // the balloon sinks. Heat takes a moment to turn into lift, and lift a moment to turn into climb,
 // so every move has to be started early and caught again. Clear the bell towers, cypresses, power
-// lines (from 6s), skeins of geese (from 11s, flagged at the edge before they fly in), other
-// balloons bobbing up and down (from 15s) and wind turbines (from 20s), while a thunderstorm's
-// cloud base lowers over the minute. Landing ends the run too.
+// lines (from 5s), skeins of geese (flagged at the edge before they fly in, often right over a
+// tower or a power line so you have to thread between them), other balloons bobbing up and down
+// (from 13s) and wind turbines (from 17s). The safe route keeps climbing and diving, so no height
+// stays safe for long. A thunderstorm's crackling cloud base lowers over the minute and flares red
+// as you get close. Landing ends the run too.
 
 import {
   createParticles,
@@ -541,7 +543,7 @@ export default {
   id: 'balloon',
   title: 'Hot Air',
   emoji: '🎈',
-  tagline: 'Hold → to fire the burner, ← to vent. Touch nothing and never land.',
+  tagline: 'Hold → to burn, ← to vent. Touch nothing, not even storm or ground.',
   colors: { bg: '#3a2e5e', fg: '#ffffff', accent: '#ffc83a' },
 
   // Musette house, 128 BPM, D major (D – Bm – G – A): a French accordion dance over a house beat.
@@ -601,6 +603,7 @@ export default {
       let tgt = Y0;
       let seg = 0;
       let len = 2.6;
+      let up = true; // the reference alternates between climbing and diving, so it keeps changing height
       for (let t = 0; t < 62; t += STEP) {
         refX.push(X);
         refY.push(s.y);
@@ -610,12 +613,11 @@ export default {
         const hi = GROUND_TOP - BASKET_DY - BASKET_R - 52;
         if (seg >= len) {
           seg = 0;
-          len = plan.range(lerp(2.2, 1.3, p), lerp(3.6, 2.1, p));
-          const reach = lerp(170, 270, p);
-          for (let k = 0; k < 6; k++) {
-            tgt = clamp(s.y + plan.range(-1, 1) * reach, lo, hi);
-            if (Math.abs(tgt - s.y) > 45) break;
-          }
+          len = plan.range(lerp(2.0, 1.3, p), lerp(3.0, 2.0, p));
+          const reach = lerp(180, 280, p);
+          up = !up;
+          if ((up ? s.y - lo : hi - s.y) < 90) up = !up;
+          tgt = clamp(s.y + (up ? -1 : 1) * plan.range(0.65, 1) * reach, lo, hi);
         }
         tgt = Math.max(tgt, lo);
         const vyDes = clamp((tgt - s.y) * 1.1, -72, 72);
@@ -724,7 +726,7 @@ export default {
           hazards.push(o);
           return true;
         };
-        const addFlock = (tm) => {
+        const addFlock = (tm, onlyAbove = false) => {
           const Xm = refX[Math.round(tm / STEP)];
           const yr = refY[Math.round(tm / STEP)];
           const gv = plan.range(25, lerp(40, 70, p));
@@ -735,11 +737,12 @@ export default {
             geese.push({ dx: rank * 15, dy: (k % 2 ? -1 : 1) * rank * 8, ph: plan.range(0, 6.28) });
           }
           const spread = Math.ceil((n - 1) / 2) * 8;
-          let above = plan.chance(0.6);
+          let above = onlyAbove || plan.chance(0.6);
           for (let k = 0; k < 4; k++) {
             const off = plan.range(lerp(65, 42, p), lerp(95, 62, p)) + k * 18;
             let y = above ? yr - ENV_R - off - spread : yr + BASKET_DY + off + spread;
             if (y - spread < ceilAt(tm) + 12 || y + spread > GROUND_TOP - 40) {
+              if (onlyAbove) return false;
               above = !above;
               continue;
             }
@@ -799,13 +802,15 @@ export default {
             if (clearStatic(wireShapes(o), m * 0.8)) {
               o.shapes = wireShapes(o);
               hazards.push(o);
+              // and geese over the middle of the span, so you can't just float high above it
+              const tMid = timeAtX(X + span / 2);
+              if (t > 6 && plan.chance(lerp(0.4, 0.7, p)) && tMid - lastFlock > 1.6 && addFlock(tMid, true)) lastFlock = tMid;
             }
           }
           step += span;
         } else {
-          addTower();
-          // later on, something above you at the same time as a tower below
-          if (t > 20 && plan.chance(0.5) && t - lastFlock > 2.2 && addFlock(t)) lastFlock = t;
+          // often a skein of geese flies over the tower too, so you have to thread between them
+          if (addTower() && t > 5 && plan.chance(lerp(0.55, 0.8, p)) && t - lastFlock > 1.6 && addFlock(t, true)) lastFlock = t;
         }
         X += step;
       }
@@ -1189,6 +1194,47 @@ export default {
           g.lineTo(x - 2, y + 5);
         }
         g.stroke();
+        // the deadly edge of the storm: a charged, crackling line that flares red as you get close
+        const edge = ceil + 3;
+        const near = this.dead ? 0 : clamp(1 - (s.y - ENV_R - edge) / 110, 0, 1);
+        const pulse = 0.5 + 0.5 * Math.sin(clock * 6);
+        const band = g.createLinearGradient(0, edge - 4, 0, edge + 28);
+        band.addColorStop(0, `rgba(255,60,110,${0.3 + 0.1 * pulse + 0.45 * near})`);
+        band.addColorStop(1, 'rgba(255,60,110,0)');
+        g.fillStyle = band;
+        g.fillRect(0, edge - 4, W, 32);
+        g.globalCompositeOperation = 'lighter';
+        g.strokeStyle = `rgba(255,${210 - 120 * near},${255 - 100 * near},${0.5 + 0.2 * pulse + 0.3 * near})`;
+        g.lineWidth = 1.5 + near;
+        g.beginPath();
+        for (let x = -4; x <= W + 12; x += 10) {
+          const y = edge + (Math.random() - 0.5) * (2.5 + 5 * near);
+          if (x < 0) g.moveTo(x, y);
+          else g.lineTo(x, y);
+        }
+        g.stroke();
+        if (near > 0.2) {
+          drawSprite(g, redGlow, BX, edge, { size: 60 + 90 * near, alpha: 0.2 + 0.6 * near });
+          if (Math.random() < near * 0.7) {
+            // a spark reaching down for the balloon
+            let x = BX + (Math.random() - 0.5) * 50;
+            let y = edge;
+            g.lineWidth = 1.2;
+            g.beginPath();
+            g.moveTo(x, y);
+            for (let k = 0; k < 4; k++) g.lineTo((x += (Math.random() - 0.5) * 10), (y += 3 + near * 7));
+            g.stroke();
+          }
+        }
+        g.globalCompositeOperation = 'source-over';
+        if (tNow < 4.5 && !this.dead) {
+          g.globalAlpha = clamp(4.5 - tNow, 0, 1) * (0.75 + 0.25 * pulse);
+          g.font = '800 12px system-ui, sans-serif';
+          g.textAlign = 'center';
+          g.fillStyle = '#ffd0dc';
+          g.fillText('⚡ the storm clouds are deadly ⚡', W / 2, edge + 52);
+          g.globalAlpha = 1;
+        }
 
         // the player's balloon
         puffs.render(g);
