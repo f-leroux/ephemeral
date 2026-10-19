@@ -13,7 +13,7 @@ import fs from 'node:fs';
 // cue name → source file and target integrated loudness (LUFS)
 const SOUNDS = {
   swell: { src: 'intro_swell', lufs: -28.8 },
-  chord: { src: 'title_chord', lufs: -18.3 },
+  // chord: { src: 'title_chord', lufs: -18.3 }, // tried; the synthesized bells fit the intro better
   beep: { src: 'countdown', lufs: -20.7 },
   death: { src: 'death', lufs: -23.9 },
   fanfare: { src: 'victory', lufs: -21.2 },
