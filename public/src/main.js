@@ -20,7 +20,7 @@ import { GAMES, SCHEDULE, gameIdFor, loadGame } from './schedule.js';
 import { unlockAudio, isMuted, setMuted } from './engine/sound.js';
 import { startPractice } from './engine/practice.js';
 import { preloadMusic, unlockMusic, musicEnabled, setMusicEnabled, stopSong } from './engine/music.js';
-import { CHANNEL } from './build.js';
+import { CHANNEL, VERSION } from './build.js';
 import { feedbackUrl } from './engine/feedback.js';
 
 const $ = (id) => document.getElementById(id);
@@ -48,6 +48,8 @@ const STORE_KEY = `ephemeral:${DAY}`;
 
 const canvas = $('stage');
 let gameId = (MODE === 'dev' && params.get('game')) || gameIdFor(DAY, DAY_NUM);
+// Today's game must come from the schedule: never stand in an old game for it.
+const NOT_OUT_YET = MODE === 'today' && !SCHEDULE[DAY];
 let game;
 let stopAmbient = null;
 let stopPractice = null;
@@ -370,15 +372,70 @@ async function setupDev() {
   });
 }
 
+// ---------- staying up to date ----------
+
+async function latestVersion() {
+  try {
+    const res = await fetch('version.json', { cache: 'no-store' });
+    return res.ok ? (await res.json()).version : null;
+  } catch {
+    return null;
+  }
+}
+
+// Browsers sometimes reopen an old copy of the site straight from their cache (the back button,
+// a reopened or restored tab), and an old copy's schedule doesn't know today's game. Ask the
+// server which version is current, bypassing every cache, and reload once if this copy is older.
+async function ensureLatest() {
+  if (VERSION === 'dev') return true;
+  const latest = await latestVersion();
+  if (!latest || latest === VERSION) return true;
+  try {
+    if (sessionStorage.getItem('ephemeral:reloaded-for') === latest) return true; // already tried
+    sessionStorage.setItem('ephemeral:reloaded-for', latest);
+  } catch {
+    return true; // can't remember the attempt, so don't risk a reload loop
+  }
+  location.reload();
+  return false;
+}
+
+// Today's date isn't in the schedule yet (a deploy is late): say so instead of playing an old game.
+function showNotOutYet() {
+  $('home-date').textContent = `#${DAY_NUM} · ${prettyDate(DAY)}`;
+  const banner = $('mode-banner');
+  banner.hidden = false;
+  banner.textContent = "Today's game isn't out yet. It should appear within a few minutes.";
+  $('home-fresh').hidden = false;
+  $('home-played').hidden = true;
+  $('play-btn').textContent = 'Check again';
+  ambient(true);
+  show('home');
+}
+
+function setupNotOutYet() {
+  $('play-btn').addEventListener('click', () => location.reload());
+  $('archive-btn').addEventListener('click', showArchive);
+  $('archive-back').addEventListener('click', showNotOutYet);
+  // reload by itself as soon as a new version of the site is published
+  setInterval(async () => {
+    const latest = await latestVersion();
+    if (latest && latest !== VERSION) location.reload();
+  }, 60000);
+  showNotOutYet();
+}
+
 async function boot() {
   // a future ?day= isn't in the archive yet: show today's game instead
   if (params.has('day') && MODE !== 'archive') history.replaceState(null, '', location.pathname);
+  if (!(await ensureLatest())) return;
   buildLogo();
   await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]);
+  setupMute();
+  if (NOT_OUT_YET) return setupNotOutYet();
   game = await loadGame(gameId);
   finalizeInterruptedRun();
   await setupDev();
-  setupMute();
   setupMusic();
   setBanner();
 

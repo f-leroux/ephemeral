@@ -49,7 +49,9 @@ async function build(dir, channel) {
     for (const id of scheduledLater) fs.rmSync(path.join(dir, `src/games/${id}.js`), { force: true });
   }
 
-  fs.writeFileSync(path.join(dir, 'src/build.js'), `export const CHANNEL = '${channel}';\n`);
+  fs.writeFileSync(path.join(dir, 'src/build.js'), `export const CHANNEL = '${channel}';\nexport const VERSION = '${version}';\n`);
+  // fetched with cache: 'no-store' on every load, so a stale cached copy of the site can tell it's stale
+  fs.writeFileSync(path.join(dir, 'version.json'), JSON.stringify({ version }));
 
   // the archive list: titles without loading every game in the browser
   const archive = [];
