@@ -9,6 +9,7 @@ import { playCue } from './sound.js';
 const INTRO_BG = [7, 7, 12];
 const CHAOS_COLORS = ['#ff6b8b', '#7ee0ff', '#ffd36b', '#9d7bff', '#6bffb8', '#ff9f5a', '#f3f0ea'];
 const DURATION = 8;
+const CHORD_AT = 1.75; // seconds into the intro
 
 const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
@@ -85,8 +86,9 @@ export function playIntro({ canvas, game, labelEl, taglineEl }) {
 
     function frame(now) {
       const T = (now - start) / 1000;
-      // bells as the title snaps together
-      if (!chimed && T > 2.1) {
+      // the title chord as the letters lock into place: particles start landing from ~1.6s and
+      // the title reads clearly a little after, so the chord leads the bulk of them slightly
+      if (!chimed && T > CHORD_AT) {
         chimed = true;
         playCue('chord');
       }
