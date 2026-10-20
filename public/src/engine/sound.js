@@ -51,6 +51,7 @@ export function unlockAudio() {
     limiter.attack.value = 0.003;
     limiter.release.value = 0.2;
     master.connect(limiter).connect(ctx.destination);
+    setTimeout(prepareCues, 0); // synthesize the engine cues now, during the intro, not when they play
   }
   if (ctx.state === 'suspended') ctx.resume();
 }
@@ -159,7 +160,8 @@ export function createSfx({ silent = false } = {}) {
       return { spec, buffer: ctx ? toBuffer(synthesize(spec, ctx.sampleRate)) : null };
     },
 
-    play(sound, { volume = 1, pitch = 1, pan = 0, delay = 0, force = false } = {}) {
+    // `when` (optional) is an absolute AudioContext time; otherwise it starts `delay` seconds from now
+    play(sound, { volume = 1, pitch = 1, pan = 0, delay = 0, force = false, when = null } = {}) {
       if (!ctx || !sound?.buffer || muted || silent) return;
       // the same sound can't retrigger more than ~25 times a second (unless it's a chord: force)
       const now = ctx.currentTime;
@@ -177,7 +179,7 @@ export function createSfx({ silent = false } = {}) {
         node = node.connect(p);
       }
       node.connect(master);
-      src.start(now + delay);
+      src.start(when ?? now + delay);
     },
 
     loop(spec) {
@@ -271,13 +273,34 @@ if (globalThis.window && Offline) {
 // Per-cue level on top of the master, recorded or synthesized (1 = as prepared).
 const CUE_GAIN = { beep: 0.5, go: 0.5 }; // countdown and GO, ~6 dB under the other cues
 
+// Cues are scheduled this far ahead on the audio clock, so all of a cue's layers start exactly
+// together even if the main thread is busy (a phone building the game at the countdown).
+const LOOKAHEAD = 0.03;
+
 let engineKit = null;
 let cueSounds = null;
+
+function cueSound(spec) {
+  if (!engineKit) {
+    engineKit = createSfx();
+    cueSounds = new Map();
+  }
+  if (!cueSounds.has(spec)) cueSounds.set(spec, engineKit.sound(spec));
+  return cueSounds.get(spec);
+}
+
+function prepareCues() {
+  if (!ctx) return;
+  for (const voices of Object.values(CUES)) for (const [spec] of voices) cueSound(spec);
+}
 
 // Plays an engine cue. `at` delays the whole cue; `pitch` shifts it (the final ticks rise).
 export function playCue(name, { at = 0, pitch = 1 } = {}) {
   if (!ctx) return;
   const gain = CUE_GAIN[name] ?? 1;
+  const voices = CUES[name] ?? [];
+  for (const [spec] of voices) cueSound(spec); // any synthesis happens before anything is scheduled
+  const t0 = ctx.currentTime + LOOKAHEAD + at;
   const buffer = recorded.get(name);
   if (buffer) {
     if (muted) return;
@@ -287,15 +310,10 @@ export function playCue(name, { at = 0, pitch = 1 } = {}) {
     const level = ctx.createGain();
     level.gain.value = gain;
     src.connect(level).connect(master);
-    src.start(ctx.currentTime + at);
+    src.start(t0);
     return;
   }
-  if (!engineKit) {
-    engineKit = createSfx();
-    cueSounds = new Map();
-  }
-  for (const [spec, { pitch: p = 1, delay = 0, volume = 1 } = {}] of CUES[name] ?? []) {
-    if (!cueSounds.has(spec)) cueSounds.set(spec, engineKit.sound(spec));
-    engineKit.play(cueSounds.get(spec), { pitch: p * pitch, delay: at + delay, volume: volume * gain, force: true });
+  for (const [spec, { pitch: p = 1, delay = 0, volume = 1 } = {}] of voices) {
+    engineKit.play(cueSound(spec), { pitch: p * pitch, when: t0 + delay, volume: volume * gain, force: true });
   }
 }
