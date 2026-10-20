@@ -52,8 +52,24 @@ export function unlockAudio() {
     limiter.release.value = 0.2;
     master.connect(limiter).connect(ctx.destination);
     setTimeout(prepareCues, 0); // synthesize the engine cues now, during the intro, not when they play
+    if (globalThis.matchMedia?.('(pointer: coarse)').matches) keepOutputAwake();
   }
   if (ctx.state === 'suspended') ctx.resume();
+}
+
+// Many phones power down their speaker amplifier after a few seconds of digital silence, and the
+// first sound after that comes out with a stutter (the countdown's "3", after the quiet end of the
+// intro, sounded doubled). A constant trickle of noise ~70 dB below the cues keeps it awake: far too
+// quiet to hear. Phones only, so desktop tabs don't show a permanent "playing audio" indicator.
+function keepOutputAwake() {
+  const buffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.0003;
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  src.loop = true;
+  src.connect(ctx.destination);
+  src.start();
 }
 
 export function isMuted() {
