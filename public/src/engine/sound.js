@@ -268,19 +268,25 @@ if (globalThis.window && Offline) {
   }
 }
 
+// Per-cue level on top of the master, recorded or synthesized (1 = as prepared).
+const CUE_GAIN = { beep: 0.7, go: 0.7 }; // countdown and GO, ~3 dB down
+
 let engineKit = null;
 let cueSounds = null;
 
 // Plays an engine cue. `at` delays the whole cue; `pitch` shifts it (the final ticks rise).
 export function playCue(name, { at = 0, pitch = 1 } = {}) {
   if (!ctx) return;
+  const gain = CUE_GAIN[name] ?? 1;
   const buffer = recorded.get(name);
   if (buffer) {
     if (muted) return;
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     src.playbackRate.value = pitch;
-    src.connect(master);
+    const level = ctx.createGain();
+    level.gain.value = gain;
+    src.connect(level).connect(master);
     src.start(ctx.currentTime + at);
     return;
   }
@@ -290,6 +296,6 @@ export function playCue(name, { at = 0, pitch = 1 } = {}) {
   }
   for (const [spec, { pitch: p = 1, delay = 0, volume = 1 } = {}] of CUES[name] ?? []) {
     if (!cueSounds.has(spec)) cueSounds.set(spec, engineKit.sound(spec));
-    engineKit.play(cueSounds.get(spec), { pitch: p * pitch, delay: at + delay, volume, force: true });
+    engineKit.play(cueSounds.get(spec), { pitch: p * pitch, delay: at + delay, volume: volume * gain, force: true });
   }
 }
