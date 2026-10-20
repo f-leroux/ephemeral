@@ -24,7 +24,7 @@
 import { VERSION } from '../build.js';
 
 const MUTE_KEY = 'ephemeral:muted';
-const MASTER = 0.7;
+const MASTER = 0.56; // ~2 dB under the music's level, so the songs come through
 
 let ctx = null;
 let master = null;
@@ -254,7 +254,7 @@ export const CUES = {
 // scripts/prepare-sounds.mjs) play instead of their synthesized voices. They load and decode in
 // the background from page load (an OfflineAudioContext can decode before the player taps
 // anything); until a file is ready, or if it fails to load, the synthesized cue plays.
-const RECORDED = ['swell', 'beep', 'death', 'fanfare'];
+const RECORDED = ['swell', 'death', 'fanfare'];
 const recorded = new Map(); // cue name -> AudioBuffer
 const Offline = globalThis.OfflineAudioContext || globalThis.webkitOfflineAudioContext;
 if (globalThis.window && Offline) {

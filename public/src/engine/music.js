@@ -13,7 +13,7 @@ import { isMuted } from './sound.js';
 
 const STRUDEL_URL = 'https://cdn.jsdelivr.net/npm/@strudel/web@1.3.0/dist/index.mjs';
 const MUSIC_KEY = 'ephemeral:music';
-const VOLUME = 0.6; // the music sits under the sound effects
+const VOLUME = 0.6; // the music's level (the sound effects' master in sound.js sits a little under it)
 
 let lib = null;
 let repl = null;
