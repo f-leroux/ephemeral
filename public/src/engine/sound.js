@@ -24,7 +24,7 @@
 import { VERSION } from '../build.js';
 
 const MUTE_KEY = 'ephemeral:muted';
-const MASTER = 0.56; // ~2 dB under the music's level, so the songs come through
+const MASTER = 0.4; // ~5 dB under the music's level, so the songs come through
 
 let ctx = null;
 let master = null;
@@ -269,7 +269,7 @@ if (globalThis.window && Offline) {
 }
 
 // Per-cue level on top of the master, recorded or synthesized (1 = as prepared).
-const CUE_GAIN = { beep: 0.7, go: 0.7 }; // countdown and GO, ~3 dB down
+const CUE_GAIN = { beep: 0.5, go: 0.5 }; // countdown and GO, ~6 dB under the other cues
 
 let engineKit = null;
 let cueSounds = null;
