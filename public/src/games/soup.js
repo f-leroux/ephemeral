@@ -469,7 +469,7 @@ export default {
         letters.push({ ch: word[i], s, w, i });
         s += lerp(1.0, 0.52, progress(s, 60, 1.1));
       }
-      s += 0.55;
+      s += 1.5; // a breather between words, to read the next one before its letters arrive
     }
 
     // ---- the needed letters, each within easy reach of the last: that's the hidden route ----
