@@ -51,7 +51,7 @@ const wrap = (a) => {
 const norm = (a) => ((a % TAU) + TAU) % TAU;
 
 const gapAt = (p) => lerp(1.45, 0.72, p);
-const spacingAt = (p) => lerp(1.25, 0.6, p);
+const spacingAt = (p) => lerp(1.25, 0.8, p);
 const reachFor = (dt) => Math.min(Math.PI, ROT * Math.max(0, dt - 0.15) * 0.62);
 
 // ---------- the route ----------
@@ -104,7 +104,7 @@ function planRoute(rng) {
       const k = rng.int(3, 5);
       const dir = rng.chance(0.5) ? 1 : -1;
       const step = rng.range(0.4, 0.62);
-      const sp = lerp(0.44, 0.34, p);
+      const sp = lerp(0.46, 0.4, p);
       add({ kind: 'plate', gaps: [{ c: nA, w: gw + 0.15 }] }, T);
       for (let i = 1; i < k; i++) {
         T += sp;
@@ -152,93 +152,187 @@ function blockedAt(o, theta, t) {
 // ---------- art ----------
 
 function paintCapsule() {
-  // seen from behind and a little above, nose pointing down the tube
-  return makeSprite(48, 76, (g) => {
-    const top = -30;
+  // seen from behind and a little above, nose pointing down the tube: a rounded brass pill with
+  // little copper fins, a porthole showing the letter inside, and a ridged rear cap
+  return makeSprite(64, 82, (g) => {
+    const top = -32;
     const bot = 22;
-    const wt = 13;
+    const wt = 12;
     const wb = 19;
+    // soft contact shadow on the tube wall
+    const sh = g.createRadialGradient(0, bot + 9, 2, 0, bot + 9, 26);
+    sh.addColorStop(0, 'rgba(10,6,2,0.55)');
+    sh.addColorStop(1, 'rgba(10,6,2,0)');
+    g.fillStyle = sh;
+    g.beginPath();
+    g.ellipse(0, bot + 9, 26, 9, 0, 0, TAU);
+    g.fill();
+    // copper fins on both flanks, near the rear
+    for (const sd of [-1, 1]) {
+      const fin = g.createLinearGradient(sd * wb, 0, sd * (wb + 9), 0);
+      fin.addColorStop(0, '#7a3418');
+      fin.addColorStop(0.5, '#e0874a');
+      fin.addColorStop(1, '#8a3c1a');
+      g.fillStyle = fin;
+      g.beginPath();
+      g.moveTo(sd * (wb - 3), bot - 20);
+      g.quadraticCurveTo(sd * (wb + 9), bot - 8, sd * (wb + 9), bot + 2);
+      g.lineTo(sd * (wb - 1), bot + 1);
+      g.closePath();
+      g.fill();
+      g.strokeStyle = 'rgba(255,214,170,0.55)';
+      g.lineWidth = 0.8;
+      g.beginPath();
+      g.moveTo(sd * (wb - 2), bot - 19);
+      g.quadraticCurveTo(sd * (wb + 8), bot - 8, sd * (wb + 8.5), bot + 1);
+      g.stroke();
+    }
+    // the body: sides that bulge gently and round off into the nose
     const body = g.createLinearGradient(-wb, 0, wb, 0);
-    body.addColorStop(0, '#5a3a12');
-    body.addColorStop(0.25, '#e9c46a');
-    body.addColorStop(0.42, '#fff1b8');
-    body.addColorStop(0.62, '#c99632');
-    body.addColorStop(1, '#4a2e0e');
+    body.addColorStop(0, '#4a2c0c');
+    body.addColorStop(0.18, '#b8842c');
+    body.addColorStop(0.34, '#ffe9a6');
+    body.addColorStop(0.42, '#fff8dc');
+    body.addColorStop(0.52, '#e3b04c');
+    body.addColorStop(0.8, '#94621c');
+    body.addColorStop(1, '#3e240a');
     g.fillStyle = body;
     g.beginPath();
-    g.moveTo(-wt, top);
-    g.lineTo(wt, top);
-    g.lineTo(wb, bot);
-    g.lineTo(-wb, bot);
+    g.moveTo(-wb, bot);
+    g.bezierCurveTo(-wb - 1, bot - 22, -wt - 2, top + 10, -wt, top + 2);
+    g.bezierCurveTo(-wt + 1, top - 9, wt - 1, top - 9, wt, top + 2);
+    g.bezierCurveTo(wt + 2, top + 10, wb + 1, bot - 22, wb, bot);
     g.closePath();
     g.fill();
-    // nose dome, far end
-    const nose = g.createRadialGradient(-3, top - 2, 1, 0, top, wt);
-    nose.addColorStop(0, '#fff6cf');
-    nose.addColorStop(0.5, '#d6a640');
-    nose.addColorStop(1, '#6b4513');
+    g.strokeStyle = 'rgba(40,22,6,0.8)';
+    g.lineWidth = 1;
+    g.stroke();
+    // a bright specular streak down the left shoulder, and a cooler rim light on the right
+    g.strokeStyle = 'rgba(255,255,240,0.75)';
+    g.lineWidth = 2.2;
+    g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(-wt + 4, top + 1);
+    g.bezierCurveTo(-wt + 2, top + 16, -wb + 5, bot - 18, -wb + 5, bot - 5);
+    g.stroke();
+    g.strokeStyle = 'rgba(190,240,225,0.35)';
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.moveTo(wt - 1, top + 4);
+    g.bezierCurveTo(wt + 1, top + 16, wb - 1, bot - 18, wb - 1, bot - 3);
+    g.stroke();
+    // nose highlight
+    const nose = g.createRadialGradient(-3, top - 2, 0.5, -2, top, 9);
+    nose.addColorStop(0, 'rgba(255,255,245,0.95)');
+    nose.addColorStop(1, 'rgba(255,240,200,0)');
     g.fillStyle = nose;
     g.beginPath();
-    g.ellipse(0, top, wt, 6, 0, 0, TAU);
+    g.arc(-2, top, 9, 0, TAU);
     g.fill();
-    // leather bands
-    for (const [y, w] of [[top + 9, lerp(wt, wb, 9 / 52)], [bot - 9, lerp(wt, wb, 43 / 52)]]) {
+    // riveted copper bands
+    for (const y of [top + 7, bot - 7]) {
+      const w = lerp(wt + 1, wb, (y - top) / (bot - top)) + 0.5;
       const band = g.createLinearGradient(-w, 0, w, 0);
-      band.addColorStop(0, '#3a1a0c');
-      band.addColorStop(0.4, '#9a4a26');
-      band.addColorStop(1, '#2a1208');
+      band.addColorStop(0, '#4a1a0a');
+      band.addColorStop(0.35, '#d8743c');
+      band.addColorStop(0.45, '#ffc49a');
+      band.addColorStop(0.7, '#a24a20');
+      band.addColorStop(1, '#3a1406');
       g.fillStyle = band;
-      g.fillRect(-w - 1, y - 3, w * 2 + 2, 6);
-      g.fillStyle = 'rgba(255,220,180,0.35)';
-      g.fillRect(-w, y - 3, w * 2, 1);
+      g.beginPath();
+      g.roundRect(-w, y - 2.5, w * 2, 5, 2);
+      g.fill();
+      g.fillStyle = 'rgba(255,230,200,0.9)';
+      for (let i = -2; i <= 2; i++) {
+        g.beginPath();
+        g.arc((i * w) / 2.6, y, 0.8, 0, TAU);
+        g.fill();
+      }
     }
-    // a glass window with a letter and its red seal inside
-    g.fillStyle = 'rgba(40,60,60,0.9)';
+    // the porthole: a thick brass bezel, dark glass, and the letter with its red wax seal
+    const py = top + 21;
+    const bez = g.createLinearGradient(-8, py - 8, 8, py + 8);
+    bez.addColorStop(0, '#fff2c0');
+    bez.addColorStop(0.5, '#b07a26');
+    bez.addColorStop(1, '#4a2c0c');
+    g.fillStyle = bez;
     g.beginPath();
-    g.roundRect(-8, top + 15, 16, 18, 3);
+    g.arc(0, py, 8.5, 0, TAU);
     g.fill();
-    g.fillStyle = '#f4ead2';
-    g.fillRect(-6, top + 18, 12, 9);
-    g.strokeStyle = 'rgba(120,100,80,0.6)';
+    const glass = g.createRadialGradient(-2, py - 2, 1, 0, py, 7);
+    glass.addColorStop(0, '#3c6a62');
+    glass.addColorStop(1, '#12261f');
+    g.fillStyle = glass;
+    g.beginPath();
+    g.arc(0, py, 6.6, 0, TAU);
+    g.fill();
+    g.save();
+    g.beginPath();
+    g.arc(0, py, 6.6, 0, TAU);
+    g.clip();
+    g.translate(0, py + 0.5);
+    g.rotate(-0.12);
+    g.fillStyle = '#fbf3df';
+    g.fillRect(-5.5, -3.6, 11, 7.2);
+    g.strokeStyle = 'rgba(140,110,80,0.8)';
     g.lineWidth = 0.6;
     g.beginPath();
-    g.moveTo(-6, top + 18);
-    g.lineTo(0, top + 23);
-    g.lineTo(6, top + 18);
+    g.moveTo(-5.5, -3.6);
+    g.lineTo(0, 0.6);
+    g.lineTo(5.5, -3.6);
     g.stroke();
-    g.fillStyle = '#c0262b';
+    g.fillStyle = '#d0312f';
     g.beginPath();
-    g.arc(0, top + 23, 2, 0, TAU);
+    g.arc(0, 0.6, 1.6, 0, TAU);
     g.fill();
-    g.fillStyle = 'rgba(255,255,255,0.35)';
-    g.fillRect(-7, top + 16, 3, 16);
-    // the rear cap, nearest to us
-    const cap = g.createRadialGradient(-5, bot - 3, 1, 0, bot, wb + 2);
-    cap.addColorStop(0, '#fff3c4');
-    cap.addColorStop(0.45, '#d9a43c');
+    g.restore();
+    // glass glint
+    g.fillStyle = 'rgba(255,255,255,0.55)';
+    g.beginPath();
+    g.ellipse(-2.6, py - 3, 2.4, 1.1, -0.6, 0, TAU);
+    g.fill();
+    // the rear cap, nearest to us, with turned rings and a handle
+    const cap = g.createRadialGradient(-6, bot - 3, 1, 0, bot, wb + 2);
+    cap.addColorStop(0, '#fff6d0');
+    cap.addColorStop(0.45, '#dcaa44');
     cap.addColorStop(1, '#5a3510');
     g.fillStyle = cap;
     g.beginPath();
-    g.ellipse(0, bot, wb + 1, 9, 0, 0, TAU);
+    g.ellipse(0, bot, wb + 1, 8.5, 0, 0, TAU);
     g.fill();
     g.strokeStyle = '#3b230a';
     g.lineWidth = 1.2;
     g.stroke();
-    g.fillStyle = '#7a5016';
+    g.strokeStyle = 'rgba(80,48,12,0.55)';
+    g.lineWidth = 0.6;
+    for (const k of [0.78, 0.56]) {
+      g.beginPath();
+      g.ellipse(0, bot, (wb + 1) * k, 8.5 * k, 0, 0, TAU);
+      g.stroke();
+    }
+    const hub = g.createRadialGradient(-1.5, bot - 1.5, 0.3, 0, bot, 5);
+    hub.addColorStop(0, '#fff4c8');
+    hub.addColorStop(1, '#8a5a18');
+    g.fillStyle = hub;
     g.beginPath();
-    g.ellipse(0, bot, wb - 6, 5.5, 0, 0, TAU);
+    g.ellipse(0, bot, 5, 2.8, 0, 0, TAU);
     g.fill();
-    g.fillStyle = '#f0cd73';
+    g.strokeStyle = '#4a2e0e';
+    g.lineWidth = 1.4;
     g.beginPath();
-    g.ellipse(0, bot - 0.5, 4, 2.4, 0, 0, TAU);
-    g.fill();
-    g.fillStyle = '#4a2e0e';
-    g.fillRect(-3, bot - 1, 6, 1);
-    // felt buffer ring
-    g.strokeStyle = '#2e5a4c';
-    g.lineWidth = 2;
+    g.moveTo(-3.5, bot);
+    g.lineTo(3.5, bot);
+    g.stroke();
+    // green felt buffer ring along the lower lip
+    g.strokeStyle = '#2f6a58';
+    g.lineWidth = 2.2;
     g.beginPath();
-    g.ellipse(0, bot, wb + 1, 9, 0, 0.1, Math.PI - 0.1);
+    g.ellipse(0, bot, wb + 1, 8.5, 0, 0.12, Math.PI - 0.12);
+    g.stroke();
+    g.strokeStyle = 'rgba(160,230,200,0.4)';
+    g.lineWidth = 0.7;
+    g.beginPath();
+    g.ellipse(0, bot + 0.6, wb + 0.5, 8, 0, 0.5, Math.PI - 0.5);
     g.stroke();
   });
 }
