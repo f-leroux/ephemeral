@@ -1,7 +1,7 @@
 // Which game runs on which day. The daily agent adds a module in ./games/ and a line here.
 // Days without an entry fall back to rotating through GAMES.
 
-export const GAMES = ['asteroids', 'quiz', 'heatwave', 'tightrope', 'fireflies', 'kite', 'twins', 'storm', 'sealshow', 'amoeba', 'sheepdog', 'lilyleap', 'seam', 'marble', 'ducklings', 'catsdogs', 'pancakes', 'toys', 'sidewinder', 'highsteel', 'spire', 'timber', 'upwind', 'pinball', 'crab', 'cart', 'balloon', 'polar', 'soup', 'tubemail'];
+export const GAMES = ['asteroids', 'quiz', 'heatwave', 'tightrope', 'fireflies', 'kite', 'twins', 'storm', 'sealshow', 'amoeba', 'sheepdog', 'lilyleap', 'seam', 'marble', 'ducklings', 'catsdogs', 'pancakes', 'toys', 'sidewinder', 'highsteel', 'spire', 'timber', 'upwind', 'pinball', 'crab', 'cart', 'balloon', 'polar', 'soup', 'tubemail', 'ninja'];
 
 export const SCHEDULE = {
   '2026-09-25': 'asteroids',
@@ -34,6 +34,7 @@ export const SCHEDULE = {
   '2026-10-22': 'polar',
   '2026-10-23': 'soup',
   '2026-10-24': 'tubemail',
+  '2026-10-25': 'ninja',
 };
 
 export function gameIdFor(day, dayNum) {
