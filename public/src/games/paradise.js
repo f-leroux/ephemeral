@@ -5,7 +5,8 @@
 // the beat ends the dance. Routines get longer and quicker (eighth-note hops from ~9s), and from
 // ~20s "mirror" rounds ask for the opposite of every hop. Taps during the rival's bar are free
 // (practise along). Your turn always opens with a free beat (counted in on the track) before the
-// first hop, and rings on the track mark the beats to hop on. While the rival dances, the track
+// first hop, and rings on the track mark the beats to hop on. The rival's last hop lands by the last beat,
+// never after it, and its arrow stays lit through your free beat, so there's a pause to read it. While the rival dances, the track
 // glows warm, each of its hops shoots a spark onto its beat there, and early rounds point at it. Every routine is planned up front from the rng, so it's the same show for all.
 
 import { createParticles, progress, lerp, clamp, makeSprite, drawSprite, glowSprite, vignetteSprite } from '../engine/kit.js';
@@ -18,6 +19,7 @@ const SLOT = BEAT / 2; // routines live on an eighth-note grid, 8 slots per bar
 const ROUNDS = 16; // bar 0 is the intro, then 16 × (rival's bar + your bar) = 33 bars = 60s
 const COUNTS = [2, 2, 3, 3, 3, 4, 3, 4, 4, 3, 4, 4, 4, 4, 4, 4];
 const FIRST_SLOT = 2; // a beat to settle in at the start of every turn before the first hop
+const LAST_SLOT = 6; // the rival's last hop lands by the last beat, never on its offbeat, so a pause follows
 const OFFBEATS_FROM = 2; // first round with eighth-note hops
 const MIRROR_FROM = 5; // first mirror round
 const PERCH = 44; // spacing of the spots along a branch
@@ -62,6 +64,7 @@ function planShow(rng) {
       if (set.size < count) continue;
       const slots = [...set].sort((a, b) => a - b);
       if (slots.some((s, i) => i >= 2 && s - slots[i - 2] === 2)) continue; // no three eighths in a row
+      if (slots[slots.length - 1] > LAST_SLOT) continue; // leave a pause to see the last move
       // the directions: both birds stay on their branches
       let cum = 0;
       const out = [];
@@ -1169,18 +1172,21 @@ export default {
           g.globalCompositeOperation = 'source-over';
         }
         if (R) {
-          const marks = yourBar ? hits.map((h) => ({ slot: h.slot, d: h.d, t: h.t, art: arrowCool })) : R.steps.map((s) => ({ slot: s.slot, d: s.d, t: s.dt, art: arrowWarm }));
+          // through your free beat the rival's routine stays on the track, its last move fully lit
+          const recap = yourBar && !hits.length && clock < R.zone;
+          const marks = yourBar && !recap ? hits.map((h) => ({ slot: h.slot, d: h.d, t: h.t, art: arrowCool })) : R.steps.map((s, i) => ({ slot: s.slot, d: s.d, t: s.dt, art: arrowWarm, last: i === R.steps.length - 1 }));
+          const cool = yourBar && !recap;
           for (const m of marks) {
             const age = clock - m.t;
             if (age < 0) continue;
-            if (!yourBar && age < 0.16) continue; // the spark is still on its way down
-            const a = yourBar || r < 2 ? 1 : Math.max(0, 1 - (age - 0.16) / 0.7);
+            if (!cool && age < 0.16) continue; // the spark is still on its way down
+            const a = cool || r < 2 || m.last ? 1 : Math.max(0, 1 - (age - 0.16) / 0.7);
             if (a <= 0) continue;
             g.save();
             g.translate(px0 + m.slot * pdx, PIP_Y);
             if (m.d < 0) g.scale(-1, 1);
-            const pop = Math.max(0, 1 - (yourBar ? age : age - 0.16) / 0.15);
-            drawSprite(g, m.art, 0, 0, { size: (yourBar ? 22 : 26) * (1 + 0.4 * pop), alpha: a });
+            const pop = Math.max(0, 1 - (cool ? age : age - 0.16) / 0.15);
+            drawSprite(g, m.art, 0, 0, { size: (cool ? 22 : 26) * (1 + 0.4 * pop), alpha: a });
             g.restore();
           }
         }
