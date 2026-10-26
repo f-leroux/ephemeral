@@ -55,7 +55,7 @@ function planMoves(rng) {
   let run = 0;
   const others = (type) => ['shove', 'grab', 'dodge'].filter((k) => k !== type);
   const add = (type, tellH, extra = {}) => {
-    if (type === 'grab') tellH += 1; // the claw reaches out a little longer, so you see it coming
+    if (type === 'grab' || type === 'dodge') tellH += 1; // grabs and dodges warn longer, so you can react
     const m = { type, tell0: h * HB, act: (h + tellH) * HB, spent: type === 'shove' ? BEAT : 0, ...extra };
     m.len = type === 'grab' ? GRAB_LEN : BEAT;
     m.end = m.act + m.len + m.spent;
@@ -1014,7 +1014,8 @@ export default {
                 vel = 0;
                 shake = 5;
                 flipT = 1;
-                pops.push({ text: 'SWAP!', x: 180, y: 380, age: 0, color: MOVES.dodge.color });
+                pops.push({ text: 'SIDES SWAPPED!', x: 180, y: 300, age: -0.6, color: MOVES.dodge.color });
+                pops.push({ text: side < 0 ? '◀ PUSH THIS WAY' : 'PUSH THIS WAY ▶', x: 180, y: 345, age: -0.6, color: '#ffffff' });
                 sparks.burst(x, GROUND - 30, { count: 20, speed: 200, life: 0.5, size: 2.6, drag: 2, colors: ['#bff8ff', MOVES.dodge.color, '#ffffff'] });
               }
             } else {
@@ -1349,10 +1350,25 @@ export default {
           drawSprite(g, glowFor(MOVES[shown].color), bx, by, { size: 170, alpha: 0.35 * k });
           g.globalCompositeOperation = 'source-over';
           drawBadge(g, bx, by, shown, phase === 'tell' ? u : 1, 0.6 + 0.4 * k, flipT, side);
+          // a big flashing arrow over the ring saying what to press
+          const push = side > 0 ? '▶▶▶' : '◀◀◀';
+          const back = side > 0 ? '◀◀◀' : '▶▶▶';
+          const cueText = shown === 'shove' ? push : shown === 'grab' ? back : '✋ LET GO';
+          g.globalAlpha = k * (0.75 + 0.25 * Math.sin(now * 20));
+          g.font = `900 40px ${BODY_FONT}`;
+          g.textAlign = 'center';
+          g.textBaseline = 'middle';
+          g.strokeStyle = 'rgba(0,0,0,0.8)';
+          g.lineWidth = 7;
+          g.lineJoin = 'round';
+          g.strokeText(cueText, 180, 250);
+          g.fillStyle = MOVES[shown].color;
+          g.fillText(cueText, 180, 250);
+          g.globalAlpha = 1;
         }
 
         for (const p of pops) {
-          const k = p.age / 1.1;
+          const k = Math.max(0, p.age) / 1.1;
           g.globalAlpha = 1 - k * k;
           g.font = `900 30px ${BODY_FONT}`;
           g.textAlign = 'center';
