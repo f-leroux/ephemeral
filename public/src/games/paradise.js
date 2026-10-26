@@ -4,7 +4,8 @@
 // from above. Every hop is a tap of ← or →; a wrong way, an extra hop, a missed step or a hop off
 // the beat ends the dance. Routines get longer and quicker (eighth-note hops from ~9s), and from
 // ~20s "mirror" rounds ask for the opposite of every hop. Taps during the rival's bar are free
-// (practise along). Every routine is planned up front from the rng, so it's the same show for all.
+// (practise along). Your turn always opens with a free beat (counted in on the track) before the
+// first hop, and rings on the track mark the beats to hop on. Every routine is planned up front from the rng, so it's the same show for all.
 
 import { createParticles, progress, lerp, clamp, makeSprite, drawSprite, glowSprite, vignetteSprite } from '../engine/kit.js';
 import { BODY_FONT } from '../engine/stage.js';
@@ -14,7 +15,8 @@ const BEAT = 1 / (4 * CPS);
 const BAR = 4 * BEAT;
 const SLOT = BEAT / 2; // routines live on an eighth-note grid, 8 slots per bar
 const ROUNDS = 16; // bar 0 is the intro, then 16 × (rival's bar + your bar) = 33 bars = 60s
-const COUNTS = [2, 2, 3, 3, 3, 4, 3, 4, 4, 4, 5, 4, 5, 5, 5, 6];
+const COUNTS = [2, 2, 3, 3, 3, 4, 3, 4, 4, 3, 4, 4, 4, 4, 4, 4];
+const FIRST_SLOT = 2; // a beat to settle in at the start of every turn before the first hop
 const OFFBEATS_FROM = 2; // first round with eighth-note hops
 const MIRROR_FROM = 5; // first mirror round
 const PERCH = 44; // spacing of the spots along a branch
@@ -52,7 +54,7 @@ function planShow(rng) {
       let guard = 0;
       while (set.size < count && guard++ < 50) {
         const off = rng.chance(pOff);
-        const s = off ? 1 + 2 * rng.int(0, 3) : 2 * rng.int(0, 3);
+        const s = off ? 3 + 2 * rng.int(0, 2) : 2 * rng.int(1, 3);
         if (r < 2 && s === 6 && set.size === 0) continue; // ease in: don't start on the last beat
         set.add(s);
       }
@@ -78,7 +80,7 @@ function planShow(rng) {
       if (r === 0 && out[0].d === out[1].d && rng.chance(0.5)) continue;
       steps = out;
     }
-    if (!steps) steps = [{ slot: 0, d: pos > 0 ? -1 : 1 }, { slot: 4, d: pos > 0 ? 1 : -1 }].slice(0, 2);
+    if (!steps) steps = [{ slot: FIRST_SLOT, d: pos > 0 ? -1 : 1 }, { slot: 6, d: pos > 0 ? 1 : -1 }];
     const demo = (1 + 2 * r) * BAR;
     const resp = demo + BAR;
     const p = progress(resp, 60, 1.2);
@@ -88,8 +90,8 @@ function planShow(rng) {
       resp,
       start: pos,
       steps: steps.map((s) => ({ ...s, dt: demo + s.slot * SLOT, t: resp + s.slot * SLOT, want: s.d * k })),
-      early: lerp(0.15, 0.11, p),
-      late: lerp(0.17, 0.125, p),
+      early: lerp(0.2, 0.15, p),
+      late: lerp(0.22, 0.16, p),
       k: 0,
     };
     R.zone = Math.min(resp, R.steps[0].t - R.early);
@@ -1037,7 +1039,14 @@ export default {
           }
         }
         const barT = clock - Math.max(0, bar) * BAR;
-        const pop = 1 + 0.25 * Math.max(0, 1 - barT / 0.18);
+        // the last beat of the rival's bar counts you in
+        const countIn = R && !yourBar && barT >= 3 * BEAT;
+        if (countIn) {
+          title = 'GET SET…';
+          sub = 'your turn next — watch the track ▼';
+          color = R.mirror ? '#e4b8ff' : '#7ff2ff';
+        }
+        const pop = 1 + 0.25 * Math.max(0, 1 - (countIn ? barT - 3 * BEAT : barT) / 0.18);
         if (!this.dead) {
           g.save();
           g.translate(W / 2, 196);
@@ -1058,19 +1067,62 @@ export default {
         // the beat track: eight pips per bar and a cursor sweeping across
         const px0 = 68;
         const pdx = 32;
-        g.fillStyle = 'rgba(4,24,16,0.5)';
+        const live = R && !this.dead;
+        const hot = live && (yourBar || countIn);
+        const trackRgb = !live ? '255,250,230' : yourBar || countIn ? (R.mirror ? '220,160,255' : '120,240,255') : '255,180,100';
+        g.fillStyle = 'rgba(4,24,16,0.72)';
         g.beginPath();
-        g.arc(px0 - 4, PIP_Y, 18, Math.PI / 2, Math.PI * 1.5);
-        g.arc(px0 + pdx * 7 + 4, PIP_Y, 18, -Math.PI / 2, Math.PI / 2);
+        g.arc(px0 - 4, PIP_Y, 22, Math.PI / 2, Math.PI * 1.5);
+        g.arc(px0 + pdx * 7 + 4, PIP_Y, 22, -Math.PI / 2, Math.PI / 2);
         g.closePath();
         g.fill();
+        g.strokeStyle = `rgba(${trackRgb},${live ? (hot ? 0.55 + 0.45 * beatPulse : 0.4 + 0.3 * beatPulse) : 0.25})`;
+        g.lineWidth = hot ? 3 : 2;
+        g.stroke();
+        if (hot) {
+          g.globalCompositeOperation = 'lighter';
+          for (let s = 0; s < 8; s += 2) drawSprite(g, R.mirror ? violetGlow : cyanGlow, px0 + s * pdx + pdx / 2, PIP_Y, { size: 70, alpha: 0.12 + 0.12 * beatPulse });
+          g.globalCompositeOperation = 'source-over';
+        }
         for (let s = 0; s < 8; s++) {
           const x = px0 + s * pdx;
           const big = s % 2 === 0;
-          g.fillStyle = big ? 'rgba(255,250,230,0.35)' : 'rgba(255,250,230,0.18)';
+          g.fillStyle = big ? 'rgba(255,250,230,0.45)' : 'rgba(255,250,230,0.22)';
           g.beginPath();
           g.arc(x, PIP_Y, big ? 5 : 3, 0, Math.PI * 2);
           g.fill();
+        }
+        // on your turn, rings mark the beats to hop on (the way to hop is yours to remember)
+        if (live && yourBar) {
+          for (let i = R.k; i < R.steps.length; i++) {
+            const st = R.steps[i];
+            const near = clamp(1 - (st.t - clock) / 0.5, 0, 1);
+            g.strokeStyle = `rgba(${trackRgb},${0.35 + 0.6 * near})`;
+            g.lineWidth = 2;
+            g.beginPath();
+            g.arc(px0 + st.slot * pdx, PIP_Y, 11 - 3 * near, 0, Math.PI * 2);
+            g.stroke();
+          }
+        }
+        // a bouncing pointer draws your eye to the track as your turn begins
+        if (live && (countIn || (yourBar && clock < R.steps[0].t))) {
+          const bob = Math.abs(Math.sin(clock * Math.PI / BEAT)) * 6;
+          g.fillStyle = `rgb(${trackRgb})`;
+          g.strokeStyle = 'rgba(0,20,12,0.6)';
+          g.lineWidth = 2;
+          for (const x of [px0 - 22, px0 + pdx * 7 + 22]) {
+            g.beginPath();
+            g.moveTo(x, PIP_Y - 30 + bob);
+            g.lineTo(x - 8, PIP_Y - 44 + bob);
+            g.lineTo(x + 8, PIP_Y - 44 + bob);
+            g.closePath();
+            g.stroke();
+            g.fill();
+          }
+          g.font = `800 13px ${BODY_FONT}`;
+          g.textAlign = 'center';
+          g.textBaseline = 'middle';
+          g.fillText(yourBar ? 'GO!' : 'READY', W / 2, PIP_Y - 34 - bob * 0.5);
         }
         if (bar >= 1 && !this.dead) {
           const u = barT / BAR;
