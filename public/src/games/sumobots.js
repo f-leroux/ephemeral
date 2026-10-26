@@ -1,7 +1,8 @@
 // Sumo Bots — a robot sumo bout under the stadium lights. Your little amber wedge bot is locked
 // nose to nose with an opponent on a black steel ring, and it leans on you the whole time, so you
 // hold → just to keep your ground. Every few beats it shows its next move on a badge: when it RAMS,
-// push back hard; when it GRABS you with its claw, reverse or it yanks you off your wheels; when it
+// push back hard; when it GRABS you with its claw, a yank meter fills up: hold reverse to wriggle
+// free before it's full or it yanks you off your wheels; when it
 // DODGES, ease off, because pushing into thin air gets you flipped. Shove it off the edge and the
 // next, bigger bot drops in. Moves land on the beat of the song and come faster, with feints that
 // change their badge halfway, flurries of rams and traps at the end of them. Every move is planned
@@ -22,7 +23,9 @@ const EDGE_R = 348;
 const K = 130; // how fast the pair slides per unit of force difference
 const SAFE_T = 2.2; // nobody falls off before this
 const DODGE_WIN = 0.24; // pushing this soon after a dodge flips you
-const GRAB_GRACE = 0.12; // how long you can fail to reverse in a grab
+const GRAB_LEN = 2 * BEAT; // a grab holds on for two beats
+const GRAB_GRACE = 0.55; // how long the claw needs to yank you if you never reverse
+const GRAB_FREE = 0.16; // how long you hold reverse to wriggle free
 
 const MOVES = {
   shove: { label: 'RAM', hint: 'PUSH  ▶', color: '#ff5240', rgb: '255,82,64' },
@@ -51,10 +54,12 @@ function planMoves(rng) {
   let run = 0;
   const others = (type) => ['shove', 'grab', 'dodge'].filter((k) => k !== type);
   const add = (type, tellH, extra = {}) => {
+    if (type === 'grab') tellH += 1; // the claw reaches out a little longer, so you see it coming
     const m = { type, tell0: h * HB, act: (h + tellH) * HB, spent: type === 'shove' ? BEAT : 0, ...extra };
-    m.end = m.act + BEAT + m.spent;
+    m.len = type === 'grab' ? GRAB_LEN : BEAT;
+    m.end = m.act + m.len + m.spent;
     moves.push(m);
-    h += tellH + 2 + (m.spent ? 2 : 0);
+    h += tellH + 2 + (m.len > BEAT ? 2 : 0) + (m.spent ? 2 : 0);
     return m;
   };
   while (h * HB < 59) {
@@ -986,7 +991,7 @@ export default {
             this.cue = { type: shown, act: m.act };
             if (shown === 'dodge') Fo = Math.min(pr, 0.3);
             else if (shown === 'shove') Fo = pr * 0.85;
-          } else if (t < m.act + BEAT) {
+          } else if (t < m.act + m.len) {
             const a = t - m.act;
             state = { m, phase: 'act', shown: m.type, u: 1, a };
             if (m.type === 'shove') {
@@ -1008,11 +1013,23 @@ export default {
               if (!m.hit) {
                 m.hit = true;
                 m.off = 0;
+                m.held = 0;
+                shake = 3;
                 sparks.burst(x - 18, GROUND - 52, { count: 12, speed: 140, life: 0.4, size: 2.4, drag: 2, colors: ['#e5c4ff', MOVES.grab.color, '#ffffff'] });
               }
-              if (dir >= 0) {
-                m.off += dt;
-                if (m.off > GRAB_GRACE) return die(this, 'grab');
+              // the claw reels you in while you push or idle; holding reverse wriggles you free
+              if (!m.free) {
+                if (dir < 0) {
+                  m.held += dt;
+                  m.off = Math.max(0, m.off - dt);
+                  if (m.held > GRAB_FREE) {
+                    m.free = true;
+                    sparks.burst(x - 26, GROUND - 50, { count: 14, speed: 180, life: 0.45, size: 2.4, drag: 2, colors: ['#e5c4ff', '#ffffff'] });
+                  }
+                } else {
+                  m.off += dt;
+                  if (m.off > GRAB_GRACE) return die(this, 'grab');
+                }
               }
             }
           } else {
@@ -1214,7 +1231,7 @@ export default {
         else drawBot(me, px, GROUND, { rot: lean, wheelA: myWheel, mood: myMood, col: PLAYER.eye, look: 0.6, blinking: blink(0) });
 
         // the grabbing claw reaches over your bot
-        if (m && m.type === 'grab' && (phase === 'act' || (phase === 'tell' && shown === 'grab')) && !pl) {
+        if (m && m.type === 'grab' && ((phase === 'act' && !m.free) || (phase === 'tell' && shown === 'grab')) && !pl) {
           const reach = phase === 'act' ? 1 : clamp(u * 1.4, 0, 1);
           const ax = ox - opp.d.w / 2 + 6;
           const ay = GROUND - opp.d.h * 0.62;
@@ -1244,6 +1261,28 @@ export default {
           g.globalCompositeOperation = 'lighter';
           drawSprite(g, glowFor(MOVES.grab.color), tx - 6, ty, { size: 34, alpha: phase === 'act' ? 0.8 : 0.4 });
           g.globalCompositeOperation = 'source-over';
+          // while it holds you: a yank meter over your bot and a big flashing arrow telling you which way
+          if (phase === 'act') {
+            const k = clamp(m.off / GRAB_GRACE, 0, 1);
+            const mx = x - PLAYER.w / 2;
+            const my = GROUND - PLAYER.h - 34;
+            g.fillStyle = 'rgba(8,10,15,0.85)';
+            g.beginPath();
+            g.roundRect(mx - 44, my - 20, 88, 34, 9);
+            g.fill();
+            g.strokeStyle = MOVES.grab.color;
+            g.lineWidth = 2;
+            g.stroke();
+            g.textAlign = 'center';
+            g.textBaseline = 'middle';
+            g.font = `900 16px ${BODY_FONT}`;
+            g.fillStyle = Math.sin(now * 24) > 0 ? '#ffffff' : MOVES.grab.color;
+            g.fillText('◀◀ PULL', mx, my - 6);
+            g.fillStyle = 'rgba(255,255,255,0.15)';
+            g.fillRect(mx - 34, my + 6, 68, 4);
+            g.fillStyle = k > 0.6 ? '#ff5240' : MOVES.grab.color;
+            g.fillRect(mx - 34, my + 6, 68 * k, 4);
+          }
         }
 
         smoke.render(g);
