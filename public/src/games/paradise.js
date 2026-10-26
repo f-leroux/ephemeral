@@ -5,7 +5,8 @@
 // the beat ends the dance. Routines get longer and quicker (eighth-note hops from ~9s), and from
 // ~20s "mirror" rounds ask for the opposite of every hop. Taps during the rival's bar are free
 // (practise along). Your turn always opens with a free beat (counted in on the track) before the
-// first hop, and rings on the track mark the beats to hop on. Every routine is planned up front from the rng, so it's the same show for all.
+// first hop, and rings on the track mark the beats to hop on. While the rival dances, the track
+// glows warm, each of its hops shoots a spark onto its beat there, and early rounds point at it. Every routine is planned up front from the rng, so it's the same show for all.
 
 import { createParticles, progress, lerp, clamp, makeSprite, drawSprite, glowSprite, vignetteSprite } from '../engine/kit.js';
 import { BODY_FONT } from '../engine/stage.js';
@@ -1025,7 +1026,7 @@ export default {
 
         // the banner
         let title = 'GET READY';
-        let sub = 'watch the rival dance first';
+        let sub = 'watch the rival and the track ▼';
         let color = '#fff6dc';
         if (R) {
           if (yourBar) {
@@ -1034,7 +1035,7 @@ export default {
             color = R.mirror ? '#e4b8ff' : '#7ff2ff';
           } else {
             title = 'WATCH';
-            sub = R.mirror ? 'MIRROR ROUND ⇄' : `dance ${r + 1}`;
+            sub = R.mirror ? 'MIRROR ROUND ⇄ — watch the track ▼' : 'its hops land on the track ▼';
             color = R.mirror ? '#e4b8ff' : '#ffc070';
           }
         }
@@ -1068,20 +1069,23 @@ export default {
         const px0 = 68;
         const pdx = 32;
         const live = R && !this.dead;
+        const watching = !this.dead && !yourBar && !countIn; // the intro and the rival's bar
         const hot = live && (yourBar || countIn);
-        const trackRgb = !live ? '255,250,230' : yourBar || countIn ? (R.mirror ? '220,160,255' : '120,240,255') : '255,180,100';
+        const warmHot = watching;
+        const trackRgb = this.dead ? '255,250,230' : yourBar || countIn ? (R.mirror ? '220,160,255' : '120,240,255') : '255,180,100';
         g.fillStyle = 'rgba(4,24,16,0.72)';
         g.beginPath();
         g.arc(px0 - 4, PIP_Y, 22, Math.PI / 2, Math.PI * 1.5);
         g.arc(px0 + pdx * 7 + 4, PIP_Y, 22, -Math.PI / 2, Math.PI / 2);
         g.closePath();
         g.fill();
-        g.strokeStyle = `rgba(${trackRgb},${live ? (hot ? 0.55 + 0.45 * beatPulse : 0.4 + 0.3 * beatPulse) : 0.25})`;
-        g.lineWidth = hot ? 3 : 2;
+        g.strokeStyle = `rgba(${trackRgb},${hot || warmHot ? 0.55 + 0.45 * beatPulse : 0.25})`;
+        g.lineWidth = hot || warmHot ? 3 : 2;
         g.stroke();
-        if (hot) {
+        if (hot || warmHot) {
           g.globalCompositeOperation = 'lighter';
-          for (let s = 0; s < 8; s += 2) drawSprite(g, R.mirror ? violetGlow : cyanGlow, px0 + s * pdx + pdx / 2, PIP_Y, { size: 70, alpha: 0.12 + 0.12 * beatPulse });
+          const halo = hot ? (R.mirror ? violetGlow : cyanGlow) : warmGlow;
+          for (let s = 0; s < 8; s += 2) drawSprite(g, halo, px0 + s * pdx + pdx / 2, PIP_Y, { size: 70, alpha: 0.12 + 0.12 * beatPulse });
           g.globalCompositeOperation = 'source-over';
         }
         for (let s = 0; s < 8; s++) {
@@ -1105,7 +1109,7 @@ export default {
           }
         }
         // a bouncing pointer draws your eye to the track as your turn begins
-        if (live && (countIn || (yourBar && clock < R.steps[0].t))) {
+        if (!this.dead && (countIn || (yourBar && clock < R.steps[0].t) || (watching && r < 3))) {
           const bob = Math.abs(Math.sin(clock * Math.PI / BEAT)) * 6;
           g.fillStyle = `rgb(${trackRgb})`;
           g.strokeStyle = 'rgba(0,20,12,0.6)';
@@ -1122,7 +1126,7 @@ export default {
           g.font = `800 13px ${BODY_FONT}`;
           g.textAlign = 'center';
           g.textBaseline = 'middle';
-          g.fillText(yourBar ? 'GO!' : 'READY', W / 2, PIP_Y - 34 - bob * 0.5);
+          g.fillText(yourBar ? 'GO!' : countIn ? 'READY' : 'WATCH THE BEATS', W / 2, PIP_Y - 34 - bob * 0.5);
         }
         if (bar >= 1 && !this.dead) {
           const u = barT / BAR;
@@ -1133,17 +1137,50 @@ export default {
           g.fillStyle = 'rgba(255,255,255,0.8)';
           g.fillRect(cx - 1, PIP_Y - 13, 2, 26);
         }
+        // each rival hop shoots a spark down onto its beat on the track
+        if (R && !yourBar && !this.dead) {
+          g.globalCompositeOperation = 'lighter';
+          for (const s of R.steps) {
+            const age = clock - s.dt;
+            if (age < 0 || age > 0.45) continue;
+            const tx = px0 + s.slot * pdx;
+            const sx = rx;
+            const sy = RIVAL_FEET - 10;
+            const u = clamp(age / 0.16, 0, 1);
+            const hx = lerp(sx, tx, u);
+            const hy = lerp(sy, PIP_Y, u);
+            const fade = 1 - clamp((age - 0.16) / 0.29, 0, 1);
+            g.strokeStyle = `rgba(255,180,100,${0.55 * fade})`;
+            g.lineWidth = 3;
+            g.beginPath();
+            g.moveTo(lerp(sx, tx, Math.max(0, u - 0.5)), lerp(sy, PIP_Y, Math.max(0, u - 0.5)));
+            g.lineTo(hx, hy);
+            g.stroke();
+            drawSprite(g, warmGlow, hx, hy, { size: 34, alpha: 0.9 * fade });
+            if (u >= 1) {
+              const ring = (age - 0.16) / 0.29;
+              g.strokeStyle = `rgba(255,200,120,${0.8 * (1 - ring)})`;
+              g.lineWidth = 2.5;
+              g.beginPath();
+              g.arc(tx, PIP_Y, 10 + ring * 22, 0, Math.PI * 2);
+              g.stroke();
+            }
+          }
+          g.globalCompositeOperation = 'source-over';
+        }
         if (R) {
           const marks = yourBar ? hits.map((h) => ({ slot: h.slot, d: h.d, t: h.t, art: arrowCool })) : R.steps.map((s) => ({ slot: s.slot, d: s.d, t: s.dt, art: arrowWarm }));
           for (const m of marks) {
             const age = clock - m.t;
             if (age < 0) continue;
-            const a = yourBar ? 1 : Math.max(0, 1 - age / 0.5);
+            if (!yourBar && age < 0.16) continue; // the spark is still on its way down
+            const a = yourBar || r < 2 ? 1 : Math.max(0, 1 - (age - 0.16) / 0.7);
             if (a <= 0) continue;
             g.save();
             g.translate(px0 + m.slot * pdx, PIP_Y);
             if (m.d < 0) g.scale(-1, 1);
-            drawSprite(g, m.art, 0, 0, { size: 22 * (1 + 0.3 * Math.max(0, 1 - age / 0.15)), alpha: a });
+            const pop = Math.max(0, 1 - (yourBar ? age : age - 0.16) / 0.15);
+            drawSprite(g, m.art, 0, 0, { size: (yourBar ? 22 : 26) * (1 + 0.4 * pop), alpha: a });
             g.restore();
           }
         }
