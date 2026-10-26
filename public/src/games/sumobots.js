@@ -1,9 +1,10 @@
 // Sumo Bots — a robot sumo bout under the stadium lights. Your little amber wedge bot is locked
 // nose to nose with an opponent on a black steel ring, and it leans on you the whole time, so you
 // hold → just to keep your ground. Every few beats it shows its next move on a badge: when it RAMS,
-// push back hard; when it GRABS you with its claw, a yank meter fills up: hold reverse to wriggle
-// free before it's full or it yanks you off your wheels; when it
-// DODGES, ease off, because pushing into thin air gets you flipped. Shove it off the edge and the
+// push back hard; when it GRABS you with its claw, hold reverse to wriggle free, because pushing
+// against the claw just gets you both hauled back toward your edge; when it DODGES, pushing lunges
+// you past it, and you both turn round so now you're pushing the other way (the whole bout is
+// mirrored and so are the arrows). Shove it off the edge and the
 // next, bigger bot drops in. Moves land on the beat of the song and come faster, with feints that
 // change their badge halfway, flurries of rams and traps at the end of them. Every move is planned
 // up front from the rng, so it's the same bout for everyone.
@@ -22,15 +23,15 @@ const EDGE_L = 12; // a bot whose centre passes these falls off
 const EDGE_R = 348;
 const K = 130; // how fast the pair slides per unit of force difference
 const SAFE_T = 2.2; // nobody falls off before this
-const DODGE_WIN = 0.24; // pushing this soon after a dodge flips you
+const DODGE_WIN = 0.24; // pushing this soon after a dodge lunges you past it
 const GRAB_LEN = 2 * BEAT; // a grab holds on for two beats
-const GRAB_GRACE = 0.55; // how long the claw needs to yank you if you never reverse
+const HAUL = 1.15; // how hard the claw hauls you both back when you push against it
 const GRAB_FREE = 0.16; // how long you hold reverse to wriggle free
 
 const MOVES = {
   shove: { label: 'RAM', hint: 'PUSH  ▶', color: '#ff5240', rgb: '255,82,64' },
   grab: { label: 'GRAB', hint: '◀  REVERSE', color: '#c98bff', rgb: '201,139,255' },
-  dodge: { label: 'DODGE', hint: 'LET GO', color: '#45e8ff', rgb: '69,232,255' },
+  dodge: { label: 'DODGE', hint: 'PUSH = SWAP', color: '#45e8ff', rgb: '69,232,255' },
 };
 
 const pressure = (t) => lerp(0.76, 0.97, progress(t, 60, 1.2)) * clamp((t - 0.4) / 1, 0, 1);
@@ -746,7 +747,7 @@ function drawEyes(g, v, mood, col, look, blink) {
   }
 }
 
-function drawBadge(g, x, y, type, u, k, flipT) {
+function drawBadge(g, x, y, type, u, k, flipT, side) {
   const m = MOVES[type];
   const pulse = 1 + 0.06 * Math.sin(u * Math.PI * 6) + (flipT > 0 ? flipT * 0.3 : 0);
   g.save();
@@ -774,7 +775,7 @@ function drawBadge(g, x, y, type, u, k, flipT) {
   g.fillText(m.label, 0, -9);
   g.font = `800 11px ${BODY_FONT}`;
   g.fillStyle = 'rgba(255,255,255,0.92)';
-  g.fillText(m.hint, 0, 10);
+  g.fillText(side < 0 ? m.hint.replace('PUSH  ▶', '◀  PUSH').replace('◀  REVERSE', 'REVERSE  ▶') : m.hint, 0, 10);
   // the fuse: burns down to the move
   g.fillStyle = 'rgba(255,255,255,0.12)';
   g.fillRect(-42, 18, 84, 3);
@@ -789,7 +790,7 @@ export default {
   id: 'sumobots',
   title: 'Sumo Bots',
   emoji: '🤖',
-  tagline: 'Push back when it rams, reverse when it grabs, never push a dodge.',
+  tagline: 'Shove it off! Wriggle out of grabs; push past a dodge to swap sides.',
   colors: { bg: '#15181f', fg: '#ffffff', accent: '#ffb21e' },
 
   // Robot dubstep in C♯ minor (C♯m – A – E – B), 140 BPM half-time: kick, snare, hats and a stepped
@@ -868,6 +869,8 @@ export default {
     let lastFo = 0;
     let lastShown = '';
     let flipT = 0;
+    let side = 1; // -1 once you've lunged past a dodge: the bout is mirrored and push is ◀
+    let hauled = 0; // when the claw last hauled you, for the death reason
     let state = { m: null, phase: '', shown: '', u: 0, a: 0 };
     const pops = [];
     const flashes = [];
@@ -877,12 +880,7 @@ export default {
 
     const die = (game, kind) => {
       game.dead = true;
-      game.deathReason =
-        kind === 'out'
-          ? 'Shoved off the edge of the ring.'
-          : kind === 'dodge'
-            ? 'Pushed into a dodge, lunged past it and got flipped.'
-            : 'Got grabbed and yanked off your wheels.';
+      game.deathReason = now - hauled < 0.4 ? 'Pushed against the claw and got hauled off the edge.' : 'Shoved off the edge of the ring.';
       const cx = x - PLAYER.w / 2;
       pl = {
         x: cx,
@@ -954,7 +952,8 @@ export default {
       deathReason: '',
       cue: null, // the move on the badge right now (handy for testing bots)
 
-      update(dt, dir, t) {
+      update(dt, rawDir, t) {
+        const dir = rawDir * side;
         now = t;
         updateCosmetic(dt);
         lastDir = dir;
@@ -988,7 +987,7 @@ export default {
           lastShown = shown;
           if (t < m.act) {
             state = { m, phase: 'tell', shown, u: (t - m.tell0) / (m.act - m.tell0), a: 0 };
-            this.cue = { type: shown, act: m.act };
+            this.cue = { type: shown, act: m.act, side };
             if (shown === 'dodge') Fo = Math.min(pr, 0.3);
             else if (shown === 'shove') Fo = pr * 0.85;
           } else if (t < m.act + m.len) {
@@ -1007,12 +1006,21 @@ export default {
                 m.hit = true;
                 for (let i = 0; i < 6; i++) smoke.burst(oppCx() + 10, GROUND - 6 - i * 8, { count: 1, speed: 120, angle: 0, spread: 0.3, life: 0.4, size: 5, round: true, colors: ['rgba(69,232,255,0.5)'] });
               }
-              if (a < DODGE_WIN && dir > 0) return die(this, 'dodge');
+              // push into thin air and you lunge right past it: you both turn round
+              if (a < DODGE_WIN && dir > 0 && !m.passed) {
+                m.passed = true;
+                side = -side;
+                x = clamp(360 - x, EDGE_L + PLAYER.w / 2 + 40, EDGE_R - opp.d.w / 2 - 40);
+                vel = 0;
+                shake = 5;
+                flipT = 1;
+                pops.push({ text: 'SWAP!', x: 180, y: 380, age: 0, color: MOVES.dodge.color });
+                sparks.burst(x, GROUND - 30, { count: 20, speed: 200, life: 0.5, size: 2.6, drag: 2, colors: ['#bff8ff', MOVES.dodge.color, '#ffffff'] });
+              }
             } else {
               frozen = true;
               if (!m.hit) {
                 m.hit = true;
-                m.off = 0;
                 m.held = 0;
                 shake = 3;
                 sparks.burst(x - 18, GROUND - 52, { count: 12, speed: 140, life: 0.4, size: 2.4, drag: 2, colors: ['#e5c4ff', MOVES.grab.color, '#ffffff'] });
@@ -1021,14 +1029,14 @@ export default {
               if (!m.free) {
                 if (dir < 0) {
                   m.held += dt;
-                  m.off = Math.max(0, m.off - dt);
                   if (m.held > GRAB_FREE) {
                     m.free = true;
                     sparks.burst(x - 26, GROUND - 50, { count: 14, speed: 180, life: 0.45, size: 2.4, drag: 2, colors: ['#e5c4ff', '#ffffff'] });
                   }
-                } else {
-                  m.off += dt;
-                  if (m.off > GRAB_GRACE) return die(this, 'grab');
+                } else if (dir > 0) {
+                  // pushing against the claw: it swings you both back the other way
+                  m.held = 0;
+                  hauled = t;
                 }
               }
             }
@@ -1040,7 +1048,8 @@ export default {
         lastFo = contact && !frozen ? Fo : 0;
 
         const Fp = dir > 0 ? 1 : dir < 0 ? -0.45 : 0;
-        const target = frozen || !contact ? 0 : K * (Fp - Fo);
+        const haul = frozen && m && m.type === 'grab' && !m.free && dir > 0;
+        const target = haul ? -K * HAUL : frozen || !contact ? 0 : K * (Fp - Fo);
         vel += (target - vel) * Math.min(1, 12 * dt);
         x += vel * dt;
         if (t < SAFE_T) x = Math.max(x, EDGE_L + PLAYER.w / 2 + 10);
@@ -1102,6 +1111,13 @@ export default {
         g.fillText(msg, off, 442);
         g.fillText(msg, off + mw, 442);
         g.restore();
+
+        // the ring and the bots, mirrored once you've swapped sides
+        g.save();
+        if (side < 0) {
+          g.translate(W, 0);
+          g.scale(-1, 1);
+        }
 
         // the edge glows red when you're close to it
         const px = x - PLAYER.w / 2;
@@ -1263,7 +1279,7 @@ export default {
           g.globalCompositeOperation = 'source-over';
           // while it holds you: a yank meter over your bot and a big flashing arrow telling you which way
           if (phase === 'act') {
-            const k = clamp(m.off / GRAB_GRACE, 0, 1);
+            const k = clamp(m.held / GRAB_FREE, 0, 1);
             const mx = x - PLAYER.w / 2;
             const my = GROUND - PLAYER.h - 34;
             g.fillStyle = 'rgba(8,10,15,0.85)';
@@ -1277,16 +1293,21 @@ export default {
             g.textBaseline = 'middle';
             g.font = `900 16px ${BODY_FONT}`;
             g.fillStyle = Math.sin(now * 24) > 0 ? '#ffffff' : MOVES.grab.color;
-            g.fillText('◀◀ PULL', mx, my - 6);
+            g.save();
+            g.translate(mx, 0);
+            g.scale(side, 1);
+            g.fillText(side < 0 ? 'PULL ▶▶' : '◀◀ PULL', 0, my - 6);
+            g.restore();
             g.fillStyle = 'rgba(255,255,255,0.15)';
             g.fillRect(mx - 34, my + 6, 68, 4);
-            g.fillStyle = k > 0.6 ? '#ff5240' : MOVES.grab.color;
+            g.fillStyle = now - hauled < 0.1 ? '#ff5240' : MOVES.grab.color;
             g.fillRect(mx - 34, my + 6, 68 * k, 4);
           }
         }
 
         smoke.render(g);
         sparks.render(g, true);
+        g.restore();
 
         // the scoreboard
         g.fillStyle = 'rgba(6,7,10,0.92)';
@@ -1321,13 +1342,13 @@ export default {
 
         // the badge announcing the next move
         if (m && !this.dead && (phase === 'tell' || (phase === 'act' && a < 0.18))) {
-          const bx = clamp(ox, 70, W - 64);
+          const bx = clamp(side < 0 ? W - ox : ox, 64, W - 64);
           const by = GROUND - opp.d.h - 70;
           const k = phase === 'tell' ? Math.min(1, u * 6) : 1 - a / 0.18;
           g.globalCompositeOperation = 'lighter';
           drawSprite(g, glowFor(MOVES[shown].color), bx, by, { size: 170, alpha: 0.35 * k });
           g.globalCompositeOperation = 'source-over';
-          drawBadge(g, bx, by, shown, phase === 'tell' ? u : 1, 0.6 + 0.4 * k, flipT);
+          drawBadge(g, bx, by, shown, phase === 'tell' ? u : 1, 0.6 + 0.4 * k, flipT, side);
         }
 
         for (const p of pops) {
