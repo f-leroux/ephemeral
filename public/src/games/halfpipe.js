@@ -5,9 +5,10 @@
 // the air; let go and the spin carries on a little before it stops. Come back down wheels-down on the
 // wall with exactly the called number of turns, the right way round, or you slam. A ring round the
 // skater in the air shows where wheels-down is and how many turns are done. The first flips are slow,
-// floaty learner airs with a lazy spin and a wide landing, so there's time to work it out. Then the calls
-// get harder (doubles, no-flips slipped in, switching directions), the airs get just long enough for
-// the trick and the landing gets less forgiving. Every air is checked against the same spin physics.
+// floaty learner airs with a lazy spin and a wide landing, so there's time to work it out, and the next
+// several ease step by step from those to full speed. Then the calls get harder (doubles, no-flips
+// slipped in, switching directions), the airs get just long enough for the trick and the landing gets
+// less forgiving. Every air is checked against the same spin physics.
 
 import {
   createParticles,
@@ -35,15 +36,17 @@ const KUP = 18; // how fast the spin winds up while you hold
 const KDN = 20; // how fast it dies down once you let go
 const BODY = 23; // the body's centre, this far off the board along the normal
 
-const gAt = (t) => lerp(800, 1000, progress(t, 60, 1.2));
-const tolAt = (t) => lerp(46, 28, progress(t, 60, 1.1)) * DEG;
+const gAt = (t) => lerp(800, 1000, progress(t, 60, 1.5));
+const tolAt = (t) => lerp(46, 28, progress(t, 60, 1.4)) * DEG;
 // the first flips are learners: floaty, slow airs, a lazy spin and a generous landing
 const EASY = [
   null,
   { g: 430, T: 2.6, wmax: 280 * DEG, tol: 62 * DEG },
   { g: 470, T: 2.4, wmax: 320 * DEG, tol: 58 * DEG },
-  { g: 620, T: 1.9, wmax: 420 * DEG, tol: 52 * DEG },
 ];
+// after them, this many airs ease from LEARN to full speed one step at a time
+const RAMP = 8;
+const LEARN = { g: 520, wmax: 370 * DEG, tol: 56 * DEG, slack: 0.5 };
 
 // height above the flat bottom at arc length s
 const hOf = (s) => {
@@ -622,12 +625,12 @@ export default {
       const side = i % 2 ? -1 : 1;
       const g = gAt(t);
       if (i === 0) return { side, g, a: 150, turns: null };
-      const p = progress(t, 60, 1.2);
+      const p = progress(t, 60, 1.5);
       const prev = airs[i - 1];
       let mag = 1;
       if (i > 2) {
         const pNo = t > 8 && prev.turns !== 0 ? 0.13 : 0;
-        const pDouble = t < 12 ? 0 : lerp(0.22, 0.5, clamp((t - 12) / 40, 0, 1));
+        const pDouble = t < 16 || i < 6 ? 0 : lerp(0.15, 0.5, clamp((t - 16) / 36, 0, 1));
         const r = plan.next();
         mag = r < pNo ? 0 : r < pNo + pDouble ? 2 : 1;
       }
@@ -636,17 +639,22 @@ export default {
       let turns = mag * dir;
       const easy = EASY[i];
       if (easy) return { side, g: easy.g, a: (easy.g * easy.T * easy.T) / 8, turns, wmax: easy.wmax, tol: easy.tol };
+      // the airs after the learners are part way between them and full speed
+      const e = clamp(1 - (i - 2) / RAMP, 0, 1);
+      const ge = lerp(g, LEARN.g, e);
+      const wmax = lerp(WMAX, LEARN.wmax, e);
       // just enough air for the trick, with less to spare as the minute goes on
-      const tol = tolAt(t + 1.5);
-      let T = mag ? (mag * TAU) / WMAX + 0.1 + plan.range(lerp(0.45, 0.14, p), lerp(0.8, 0.3, p)) : plan.range(0.95, 1.4);
-      while (refError(turns, T) > tol * 0.4) T += 0.03;
-      let a = (g * T * T) / 8;
+      const tol = lerp(tolAt(t + 1.5), LEARN.tol, e);
+      let T = mag ? (mag * TAU) / wmax + 0.1 + e * LEARN.slack + plan.range(lerp(0.45, 0.14, p), lerp(0.8, 0.3, p)) : plan.range(0.95, 1.4);
+      while (refError(turns, T, wmax) > tol * 0.4) T += 0.03;
+      let a = (ge * T * T) / 8;
       if (a > 390) {
         a = 390;
-        T = 2 * Math.sqrt((2 * a) / g);
-        if (refError(turns, T) > tol * 0.4) turns = dir; // no room for a double up there
+        T = 2 * Math.sqrt((2 * a) / ge);
+        if (refError(turns, T, wmax) > tol * 0.4) turns = dir; // no room for a double up there
       }
-      return { side, g, a: Math.max(90, a), turns };
+      if (!e) return { side, g, a: Math.max(90, a), turns };
+      return { side, g: ge, a: Math.max(90, a), turns, wmax, tol };
     };
     airs.push(makeAir(0, 0), makeAir(1, 0));
 
