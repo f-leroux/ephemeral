@@ -4,7 +4,8 @@
 // see how much air time you'll get. Holding → spins the skater clockwise, ← anticlockwise, and only in
 // the air; let go and the spin carries on a little before it stops. Come back down wheels-down on the
 // wall with exactly the called number of turns, the right way round, or you slam. A ring round the
-// skater in the air shows where wheels-down is and how many turns are done. Over the minute the calls
+// skater in the air shows where wheels-down is and how many turns are done. The first flips are slow,
+// floaty learner airs with a lazy spin and a wide landing, so there's time to work it out. Then the calls
 // get harder (doubles, no-flips slipped in, switching directions), the airs get just long enough for
 // the trick and the landing gets less forgiving. Every air is checked against the same spin physics.
 
@@ -36,6 +37,13 @@ const BODY = 23; // the body's centre, this far off the board along the normal
 
 const gAt = (t) => lerp(800, 1000, progress(t, 60, 1.2));
 const tolAt = (t) => lerp(46, 28, progress(t, 60, 1.1)) * DEG;
+// the first flips are learners: floaty, slow airs, a lazy spin and a generous landing
+const EASY = [
+  null,
+  { g: 430, T: 2.6, wmax: 280 * DEG, tol: 62 * DEG },
+  { g: 470, T: 2.4, wmax: 320 * DEG, tol: 58 * DEG },
+  { g: 620, T: 1.9, wmax: 420 * DEG, tol: 52 * DEG },
+];
 
 // height above the flat bottom at arc length s
 const hOf = (s) => {
@@ -75,22 +83,22 @@ function physics(st, g, dt) {
 }
 
 // one step of the spin: wind up towards top speed while held, die down when let go
-function spinStep(sp, dir, dt) {
-  if (dir) sp.w += (dir * WMAX - sp.w) * Math.min(1, KUP * dt);
+function spinStep(sp, dir, dt, wmax = WMAX) {
+  if (dir) sp.w += (dir * wmax - sp.w) * Math.min(1, KUP * dt);
   else sp.w -= sp.w * Math.min(1, KDN * dt);
   sp.a += sp.w * dt;
 }
 
 // how far off wheels-down a straightforward rider lands a trick of `turns` with `air` seconds of
 // air: hold from take-off, let go when the spin would coast onto the target
-function refError(turns, air) {
+function refError(turns, air, wmax = WMAX) {
   if (!turns) return 0;
   const goal = Math.abs(turns) * TAU;
   const sp = { a: 0, w: 0 };
   let held = true;
   for (let t = 0; t < air; t += STEP) {
     if (held && sp.a + sp.w / KDN >= goal) held = false;
-    spinStep(sp, held ? 1 : 0, STEP);
+    spinStep(sp, held ? 1 : 0, STEP, wmax);
   }
   return Math.abs(sp.a - goal);
 }
@@ -626,6 +634,8 @@ export default {
       let dir = i === 1 ? 1 : i === 2 ? -1 : plan.chance(lerp(0.35, 0.7, p)) ? -lastDir : lastDir;
       if (mag) lastDir = dir;
       let turns = mag * dir;
+      const easy = EASY[i];
+      if (easy) return { side, g: easy.g, a: (easy.g * easy.T * easy.T) / 8, turns, wmax: easy.wmax, tol: easy.tol };
       // just enough air for the trick, with less to spare as the minute goes on
       const tol = tolAt(t + 1.5);
       let T = mag ? (mag * TAU) / WMAX + 0.1 + plan.range(lerp(0.45, 0.14, p), lerp(0.8, 0.3, p)) : plan.range(0.95, 1.4);
@@ -773,12 +783,12 @@ export default {
             sparks.burst(CX + side * LIPX, YB - R, { count: 10, speed: 120, life: 0.4, size: 2, colors: ['#fff6c0', '#ffd060', '#ff8a3a', '#ffffff'], angle: Math.PI / 2 - side * 0.3, spread: 1.6, gravity: 400 });
           }
         }
-        if (inAir && air.turns !== null) spinStep(sp, dir, dt);
+        if (inAir && air.turns !== null) spinStep(sp, dir, dt, air.wmax);
         if (was && !is) {
           // touch-down
           inAir = false;
           if (air.turns !== null) {
-            const why = judge(air.turns, tolAt(t));
+            const why = judge(air.turns, air.tol ?? tolAt(t));
             if (why) return die(this, why);
             const q = riderPos();
             if (air.turns) {
@@ -957,7 +967,7 @@ export default {
           // in the air: a ring showing where wheels-down is and the turns done so far
           if (inAir && air.turns !== null && !this.dead) {
             const base = Math.atan2(q.ny, q.nx);
-            const tol = tolAt(tNow);
+            const tol = air.tol ?? tolAt(tNow);
             const clean = Math.abs(sp.a - air.turns * TAU) <= tol;
             const col = air.turns > 0 ? CALL_RIGHT : air.turns < 0 ? CALL_LEFT : '#7a8a96';
             g.strokeStyle = 'rgba(255,255,255,0.5)';
