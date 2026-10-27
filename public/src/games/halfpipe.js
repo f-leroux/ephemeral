@@ -1,12 +1,12 @@
-// Halfpipe — a skater rides a vert ramp at a beachside skatepark. You never walk: you pump. Holding
-// the way you're rolling pushes you along (more speed, so you fly higher up the next wall); holding
-// against it brakes you (lower). The push only bites on the ramp, not in the air, so every height is
-// set during the half a second you spend crossing the bottom. On each wall in turn, a balloon floats
-// at one height and a camera drone hovers above it: fly high enough to pop the balloon, but not so
-// high that you hit the drone. The windows narrow, swing from low to high and back, the swings get
-// quicker (gravity creeps up), and after 26s balloons and drones bob up and down. A marker on the
-// wall you're heading for shows how high you'd fly if you let go now. Every window is planned around
-// a hidden reference ride with the skater's own physics, so there's always a way through.
+// Halfpipe — a skater rides a vert ramp at a beachside skatepark, pumping on their own from wall to
+// wall. Your job is the air: over each wall a card calls the trick (a flip clockwise, a flip
+// anticlockwise, a double, or no flip at all) and floats at the height the skater will reach, so you
+// see how much air time you'll get. Holding → spins the skater clockwise, ← anticlockwise, and only in
+// the air; let go and the spin carries on a little before it stops. Come back down wheels-down on the
+// wall with exactly the called number of turns, the right way round, or you slam. A ring round the
+// skater in the air shows where wheels-down is and how many turns are done. Over the minute the calls
+// get harder (doubles, no-flips slipped in, switching directions), the airs get just long enough for
+// the trick and the landing gets less forgiving. Every air is checked against the same spin physics.
 
 import {
   createParticles,
@@ -27,13 +27,15 @@ const ARC = (Math.PI * R) / 2;
 const EDGE = HALF + ARC; // arc length from the centre to a lip
 const LIPX = HALF + R; // a lip's distance from the centre
 const STEP = 1 / 120;
-const PUMP = 0.56; // push strength, as a fraction of gravity
-const DRAG = 0.045;
-const FREE = 4; // the first swings have no balloons: time to get going
-const BALLOON_UP = 9; // a balloon is drawn this far above the height that pops it
-const DRONE_UP = 12; // a drone is drawn this far above the height that hits it
+const TAU = Math.PI * 2;
+const DEG = Math.PI / 180;
+const WMAX = 540 * DEG; // top spin speed
+const KUP = 18; // how fast the spin winds up while you hold
+const KDN = 20; // how fast it dies down once you let go
+const BODY = 23; // the body's centre, this far off the board along the normal
 
-const gAt = (t) => lerp(820, 1180, progress(t, 60, 1.1));
+const gAt = (t) => lerp(800, 1000, progress(t, 60, 1.2));
+const tolAt = (t) => lerp(46, 28, progress(t, 60, 1.1)) * DEG;
 
 // height above the flat bottom at arc length s
 const hOf = (s) => {
@@ -42,8 +44,6 @@ const hOf = (s) => {
   if (a <= EDGE) return R * (1 - Math.cos((a - HALF) / R));
   return R + a - EDGE;
 };
-// arc length (on one side, positive) at height h
-const sOfH = (h) => (h <= 0 ? HALF : h <= R ? HALF + R * Math.acos(1 - h / R) : EDGE + h - R);
 // screen position, slope angle (0 flat … π/2 vertical) and side
 const geo = (s) => {
   const a = Math.abs(s);
@@ -55,11 +55,6 @@ const geo = (s) => {
   }
   return { x: CX + sg * LIPX, y: YB - R - (a - EDGE), phi: Math.PI / 2, sg };
 };
-// a point at height h on one side, pushed `off` along the normal (positive = into the open ramp)
-const wallPoint = (side, h, off) => {
-  const q = geo(side * sOfH(h));
-  return { x: q.x - q.sg * Math.sin(q.phi) * off, y: q.y - Math.cos(q.phi) * off, phi: q.phi };
-};
 // the ramp surface's y at screen x (for the bail)
 const surfaceY = (x) => {
   const dx = Math.abs(x - CX);
@@ -68,61 +63,51 @@ const surfaceY = (x) => {
   return YB - R;
 };
 
-function physics(st, dir, g, dt) {
+// gravity only: the skater pumps on their own, so the speed is set at the bottom of each crossing
+function physics(st, g, dt) {
   const a = Math.abs(st.s);
   const sg = st.s < 0 ? -1 : 1;
   let sin = 0;
-  let cos = 1;
-  if (a > EDGE) {
-    sin = 1;
-    cos = 0;
-  } else if (a > HALF) {
-    const phi = (a - HALF) / R;
-    sin = Math.sin(phi);
-    cos = Math.cos(phi);
-  }
-  st.v += (-g * sin * sg + dir * PUMP * g * cos - DRAG * st.v) * dt;
+  if (a > EDGE) sin = 1;
+  else if (a > HALF) sin = Math.sin((a - HALF) / R);
+  st.v += -g * sin * sg * dt;
   st.s += st.v * dt;
 }
 
-// how high the skater will fly at the next turnaround if they let go now
-function predict(st, g) {
-  const q = { s: st.s, v: st.v };
-  const v0 = q.v;
-  if (v0 === 0) return { h: hOf(q.s), side: Math.sign(q.s) };
-  for (let i = 0; i < 400; i++) {
-    const a = Math.abs(q.s);
-    if (a > EDGE && Math.sign(q.v) === Math.sign(q.s)) {
-      // flying straight up: no need to step it out
-      return { h: hOf(q.s) + (q.v * q.v) / (2 * g) * 0.97, side: Math.sign(q.s) };
-    }
-    physics(q, 0, g, 1 / 60);
-    if (q.v * v0 <= 0) break;
-  }
-  return { h: hOf(q.s), side: Math.sign(q.s) };
+// one step of the spin: wind up towards top speed while held, die down when let go
+function spinStep(sp, dir, dt) {
+  if (dir) sp.w += (dir * WMAX - sp.w) * Math.min(1, KUP * dt);
+  else sp.w -= sp.w * Math.min(1, KDN * dt);
+  sp.a += sp.w * dt;
 }
 
-// the next turnaround from a standstill at height h, pushing `dir` the whole way
-function apexFrom(h, side, dir, g) {
-  const q = { s: side * sOfH(h), v: 0 };
-  physics(q, dir, g, STEP);
-  const v0 = q.v;
-  for (let i = 0; i < 800; i++) {
-    physics(q, Math.abs(q.s) > EDGE ? 0 : dir, g, STEP);
-    if (q.v * v0 <= 0) break;
+// how far off wheels-down a straightforward rider lands a trick of `turns` with `air` seconds of
+// air: hold from take-off, let go when the spin would coast onto the target
+function refError(turns, air) {
+  if (!turns) return 0;
+  const goal = Math.abs(turns) * TAU;
+  const sp = { a: 0, w: 0 };
+  let held = true;
+  for (let t = 0; t < air; t += STEP) {
+    if (held && sp.a + sp.w / KDN >= goal) held = false;
+    spinStep(sp, held ? 1 : 0, STEP);
   }
-  return { h: hOf(q.s), side: Math.sign(q.s) };
+  return Math.abs(sp.a - goal);
 }
 
 const CONFETTI = ['#ff4fa3', '#ffd23a', '#7cf05a', '#3fd8ff', '#ff8a2a', '#ffffff'];
-const SPARKS = ['#fff6c0', '#ffd060', '#ff8a3a', '#ffffff'];
-const BALLOON_COLORS = [
-  ['#ff6fb8', '#d81b74', '#7a0a3e'],
-  ['#ffe36a', '#f0b400', '#8a5a00'],
-  ['#9cf56c', '#3fbf2a', '#1a6010'],
-  ['#ffab5a', '#ff6a1a', '#8a2a00'],
-  ['#b39cff', '#7a4ff0', '#35188a'],
-];
+const CALL_RIGHT = '#ff8a2a';
+const CALL_LEFT = '#2fb8ff';
+
+function roundRect(g, x, y, w, h, r) {
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
+}
 
 // ---------- art ----------
 
@@ -254,97 +239,6 @@ function paintSkater(pose) {
   });
 }
 
-function paintBalloon([hi, mid, dark]) {
-  return makeSprite(26, 34, (g) => {
-    const body = g.createRadialGradient(-3.5, -9, 1, 0, -4, 14);
-    body.addColorStop(0, hi);
-    body.addColorStop(0.55, mid);
-    body.addColorStop(1, dark);
-    g.fillStyle = body;
-    g.beginPath();
-    g.moveTo(0, 9);
-    g.bezierCurveTo(-7, 6, -11, -1, -11, -6);
-    g.bezierCurveTo(-11, -13, -6, -17, 0, -17);
-    g.bezierCurveTo(6, -17, 11, -13, 11, -6);
-    g.bezierCurveTo(11, -1, 7, 6, 0, 9);
-    g.closePath();
-    g.fill();
-    g.fillStyle = dark;
-    g.beginPath();
-    g.moveTo(-2, 11.5);
-    g.lineTo(2, 11.5);
-    g.lineTo(0.6, 8.5);
-    g.lineTo(-0.6, 8.5);
-    g.closePath();
-    g.fill();
-    g.fillStyle = 'rgba(255,255,255,0.75)';
-    g.beginPath();
-    g.ellipse(-4.5, -9.5, 2.2, 4, 0.5, 0, Math.PI * 2);
-    g.fill();
-    g.fillStyle = 'rgba(255,255,255,0.4)';
-    g.beginPath();
-    g.arc(-1.5, -4.5, 1.1, 0, Math.PI * 2);
-    g.fill();
-  });
-}
-
-function paintDrone() {
-  // a camera quadcopter seen from the side; the rotors are drawn live
-  return makeSprite(44, 22, (g) => {
-    g.strokeStyle = '#3a3e48';
-    g.lineWidth = 2.2;
-    g.lineCap = 'round';
-    g.beginPath();
-    g.moveTo(-6, -1);
-    g.lineTo(-15, -4);
-    g.moveTo(6, -1);
-    g.lineTo(15, -4);
-    g.stroke();
-    for (const x of [-15, 15]) {
-      g.fillStyle = '#22252c';
-      g.fillRect(x - 2, -7, 4, 4);
-      g.fillStyle = '#5a606c';
-      g.fillRect(x - 0.6, -9, 1.2, 2.5);
-    }
-    const body = g.createLinearGradient(0, -5, 0, 4);
-    body.addColorStop(0, '#5c6370');
-    body.addColorStop(0.5, '#2c3038');
-    body.addColorStop(1, '#16181d');
-    g.fillStyle = body;
-    g.beginPath();
-    g.moveTo(-9, 2);
-    g.quadraticCurveTo(-10, -4, -4, -4.5);
-    g.lineTo(4, -4.5);
-    g.quadraticCurveTo(10, -4, 9, 2);
-    g.closePath();
-    g.fill();
-    g.fillStyle = 'rgba(255,255,255,0.25)';
-    g.fillRect(-5, -3.8, 9, 1);
-    // the gimbal and camera
-    g.fillStyle = '#1a1c22';
-    g.fillRect(-1, 2, 2, 2.5);
-    g.beginPath();
-    g.arc(0, 6.5, 3.4, 0, Math.PI * 2);
-    g.fill();
-    g.fillStyle = '#3fd8ff';
-    g.beginPath();
-    g.arc(1.2, 6.3, 1.4, 0, Math.PI * 2);
-    g.fill();
-    g.fillStyle = '#ffffff';
-    g.fillRect(1.2, 5.4, 0.7, 0.7);
-    // skids
-    g.strokeStyle = '#22252c';
-    g.lineWidth = 1.2;
-    g.beginPath();
-    g.moveTo(-6, 2);
-    g.lineTo(-8, 9);
-    g.lineTo(-3, 9);
-    g.moveTo(6, 2);
-    g.lineTo(8, 9);
-    g.lineTo(3, 9);
-    g.stroke();
-  });
-}
 
 function paintPalm(rng) {
   return makeSprite(110, 200, (g) => {
@@ -664,7 +558,7 @@ export default {
   id: 'halfpipe',
   title: 'Halfpipe',
   emoji: '🛹',
-  tagline: 'Push the way you roll to fly higher. Pop balloons, never hit a drone.',
+  tagline: 'Hold ← or → in the air to flip as the card says. Land wheels-down.',
   colors: { bg: '#1fb3cf', fg: '#ffffff', accent: '#ff5fae' },
 
   // Skate punk, 176 BPM, E major (E – B – C♯m – A). A punk rock beat, driving eighth-note sawtooth
@@ -712,89 +606,39 @@ export default {
     const art = rng.fork('art');
     const plan = rng.fork('plan');
 
-    // ---- the windows: one per turnaround, alternating walls (right first). Each has a balloon you
-    // must reach (lo) and a drone you must stay under (hi), both possibly bobbing by A. ----
-    const wins = [];
-    for (let i = 0; i < FREE; i++) wins.push({ side: i % 2 ? -1 : 1, free: true });
-    let lastJump = -1;
-    const makeWin = (prev, t) => {
-      const side = -prev.side;
-      const p = Math.pow(clamp(t / 58, 0, 1), 1.1);
+    // ---- the airs, one per wall (right first). turns: +clockwise / −anticlockwise, 0 = no flip,
+    // null = the warm-up drop-in. a: how high above the lip the skater flies. ----
+    const airs = [];
+    let lastDir = -1;
+    const makeAir = (i, t) => {
+      const side = i % 2 ? -1 : 1;
       const g = gAt(t);
-      const A = t > 26 && plan.chance(lerp(0.35, 0.75, clamp((t - 26) / 30, 0, 1))) ? plan.range(10, lerp(14, 22, p)) : 0;
-      const band = plan.range(lerp(170, 66, p), lerp(210, 88, p)); // the clear band between the bobs
-      if (prev.free) {
-        const lo = plan.range(108, 128);
-        return { side, lo, hi: lo + band + 60, A: 0, w: 0, p1: 0, p2: 0, color: plan.int(0, BALLOON_COLORS.length - 1) };
+      if (i === 0) return { side, g, a: 150, turns: null };
+      const p = progress(t, 60, 1.2);
+      const prev = airs[i - 1];
+      let mag = 1;
+      if (i > 2) {
+        const pNo = t > 8 && prev.turns !== 0 ? 0.13 : 0;
+        const pDouble = t < 12 ? 0 : lerp(0.22, 0.5, clamp((t - 12) / 40, 0, 1));
+        const r = plan.next();
+        mag = r < pNo ? 0 : r < pNo + pDouble ? 2 : 1;
       }
-      const pLo = prev.lo + prev.A;
-      const pHi = prev.hi - prev.A;
-      const c = lerp(0.45, 0.82, p);
-      const up = apexFrom(pLo, prev.side, side, g).h - pLo;
-      const dn = apexFrom(pHi, prev.side, -side, g);
-      const down = pHi - (dn.side === side ? dn.h : 0);
-      const loMin = Math.max(38, 140 - band);
-      const hiMax = 462;
-      // centre of the clear band: keep each wall reachable from anywhere in the last one
-      let mMin = Math.max(loMin + band / 2, pHi - c * down - band / 2);
-      let mMax = Math.min(hiMax - band / 2, pLo + c * up + band / 2);
-      if (mMin > mMax) mMin = mMax = (mMin + mMax) / 2;
-      const pm = (pLo + pHi) / 2;
-      let jump = plan.chance(0.75) ? -lastJump : lastJump;
-      if (pm + jump * 40 > mMax) jump = -1;
-      if (pm + jump * 40 < mMin) jump = 1;
-      lastJump = jump;
-      const reach = jump > 0 ? mMax - pm : pm - mMin;
-      const m = clamp(pm + jump * plan.range(0.45, 1) * Math.max(0, reach), mMin, mMax);
-      return {
-        side,
-        lo: m - band / 2 - A,
-        hi: m + band / 2 + A,
-        A,
-        w: plan.range(3, 5),
-        p1: plan.range(0, 6.28),
-        p2: plan.range(0, 6.28),
-        color: plan.int(0, BALLOON_COLORS.length - 1),
-      };
-    };
-    const balloonH = (w, t) => w.lo + w.A * Math.sin(w.w * t + w.p1);
-    const droneH = (w, t) => w.hi + w.A * Math.sin(w.w * t + w.p2);
-
-    // a reference ride with the same physics that every window is built around
-    const steer = (st, w, g) => {
-      const hd = st.v > 0 ? 1 : st.v < 0 ? -1 : -Math.sign(st.s) || 1;
-      if (w.free || w.side !== hd) return w.free && hd === w.side && predict(st, g).h > 150 ? 0 : hd;
-      const aim = (w.lo + w.hi) / 2;
-      const pr = predict(st, g).h;
-      return pr < aim - 5 ? hd : pr > aim + 5 ? -hd : 0;
-    };
-    {
-      const ref = { s: -EDGE, v: 0 };
-      let k = 0;
-      let vPrev = 0;
-      let d = 0;
-      for (let i = 0; i * STEP < 63; i++) {
-        const t = i * STEP;
-        while (wins.length <= k + 2) wins.push(makeWin(wins[wins.length - 1], t));
-        const w = wins[k];
-        const g = gAt(t);
-        if (i % 4 === 0) d = steer(ref, w, g);
-        physics(ref, d, g, STEP);
-        if (vPrev !== 0 && ref.v * vPrev <= 0) {
-          const side = Math.sign(ref.s);
-          const h = hOf(ref.s);
-          if (w.free) {
-            if (side === w.side) k++;
-          } else {
-            // a safety net: keep the reference ride possible no matter what
-            if (h < w.lo + w.A + 4) w.lo = h - w.A - 4;
-            if (h > w.hi - w.A - 4) w.hi = h + w.A + 4;
-            k++;
-          }
-        }
-        vPrev = ref.v;
+      let dir = i === 1 ? 1 : i === 2 ? -1 : plan.chance(lerp(0.35, 0.7, p)) ? -lastDir : lastDir;
+      if (mag) lastDir = dir;
+      let turns = mag * dir;
+      // just enough air for the trick, with less to spare as the minute goes on
+      const tol = tolAt(t + 1.5);
+      let T = mag ? (mag * TAU) / WMAX + 0.1 + plan.range(lerp(0.45, 0.14, p), lerp(0.8, 0.3, p)) : plan.range(0.95, 1.4);
+      while (refError(turns, T) > tol * 0.4) T += 0.03;
+      let a = (g * T * T) / 8;
+      if (a > 390) {
+        a = 390;
+        T = 2 * Math.sqrt((2 * a) / g);
+        if (refError(turns, T) > tol * 0.4) turns = dir; // no room for a double up there
       }
-    }
+      return { side, g, a: Math.max(90, a), turns };
+    };
+    airs.push(makeAir(0, 0), makeAir(1, 0));
 
     // ---- art ----
     const backdrop = paintBackdrop(W, H, art);
@@ -802,12 +646,8 @@ export default {
     const palms = [paintPalm(art), paintPalm(art)];
     const clouds = [paintCloud(art, 120), paintCloud(art, 90), paintCloud(art, 150)];
     const skater = [paintSkater(0), paintSkater(1), paintSkater(2)];
-    const balloons = BALLOON_COLORS.map(paintBalloon);
-    const drone = paintDrone();
     const sunGlow = glowSprite('rgba(255,250,215,0.9)', 80);
-    const redGlow = glowSprite('rgba(255,60,60,0.9)', 24);
     const greenGlow = glowSprite('rgba(140,255,160,0.9)', 24);
-    const whiteGlow = glowSprite('rgba(255,255,255,0.9)', 24);
     const vignette = vignetteSprite(W, H, 0.35, '10,40,60');
     const cloudSet = [
       { x: 40, y: 92, k: 0, v: 6 },
@@ -818,71 +658,68 @@ export default {
 
     // ---- state ----
     const st = { s: -EDGE, v: 0 };
-    let k = 0;
-    let vPrev = 0;
-    let lastAdvance = 0;
+    const sp = { a: 0, w: 0 }; // the spin in the air
+    let k = 0; // the air being flown, or the next one
+    let gNow = airs[0].g;
+    let inAir = false;
+    let settle = 0; // what's left of a landed spin, eased out on the ramp
     let tNow = 0;
     let clock = 0;
-    let input = 0;
     let facing = 1;
-    let face = 1; // eased, for the turn at the top
-    let popped = 0;
-    let gNow = gAt(0);
+    let face = 1;
+    let landed = 0;
     let shake = 0;
     let bail = null;
     const fx = createParticles();
     const sparks = createParticles();
     const streaks = [];
-    const flyers = []; // drones knocked out of the sky
-    const pops = []; // "POP!" labels
+    const labels = [];
 
     const riderPos = () => {
       const q = geo(st.s);
-      return { x: q.x, y: q.y, rot: -q.sg * q.phi, phi: q.phi, sg: q.sg };
-    };
-
-    const die = (game, reason, kind) => {
-      game.dead = true;
-      game.deathReason = reason;
-      shake = kind === 'drone' ? 1 : 0.5;
-      const q = riderPos();
       const nx = -q.sg * Math.sin(q.phi);
       const ny = -Math.cos(q.phi);
-      // the board's velocity along the ramp, on screen
+      return { x: q.x, y: q.y, bx: q.x + nx * BODY, by: q.y + ny * BODY, rot: -q.sg * q.phi, phi: q.phi, sg: q.sg, nx, ny };
+    };
+
+    const die = (game, reason) => {
+      game.dead = true;
+      game.deathReason = reason;
+      shake = 0.7;
+      const q = riderPos();
       const vx = st.v * Math.cos(q.phi);
       const vy = -q.sg * Math.sin(q.phi) * st.v;
-      // body centre is about 18 along the normal from the board
       bail = {
-        x: q.x + nx * 18,
-        y: q.y + ny * 18,
-        vx: vx * 0.8 + nx * 60,
-        vy: vy * 0.8 + ny * 40 - (kind === 'drone' ? 80 : 0),
-        rot: q.rot,
+        x: q.bx,
+        y: q.by,
+        vx: vx * 0.5 + q.nx * 90,
+        vy: vy * 0.5 - 60,
+        rot: q.rot + sp.a,
         spin: (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 4),
         bx: q.x,
         by: q.y,
-        bvx: nx * -40 + (Math.random() - 0.5) * 120,
-        bvy: -160 - Math.random() * 80,
-        brot: q.rot,
+        bvx: q.nx * 60 + (Math.random() - 0.5) * 120,
+        bvy: -200 - Math.random() * 80,
+        brot: q.rot + sp.a,
         bspin: (Math.random() - 0.5) * 18,
         rest: false,
       };
-      if (kind === 'drone') {
-        sparks.burst(bail.x, bail.y - 6, { count: 34, speed: 220, life: 0.8, size: 3, colors: SPARKS, drag: 1.5, gravity: 200 });
-        fx.burst(bail.x, bail.y - 6, { count: 14, speed: 120, life: 1.2, size: 4, colors: ['#2c3038', '#5c6370', '#16181d'], gravity: 500 });
-      } else {
-        fx.burst(q.x, q.y, { count: 16, speed: 90, life: 0.9, size: 4, round: true, drag: 2, colors: ['rgba(255,255,255,0.8)', 'rgba(200,220,230,0.7)'] });
-      }
+      fx.burst(q.x, q.y, { count: 18, speed: 110, life: 0.9, size: 4, round: true, drag: 2, colors: ['rgba(255,255,255,0.8)', 'rgba(200,220,230,0.7)'] });
+      sparks.burst(q.x, q.y, { count: 14, speed: 160, life: 0.5, size: 2, colors: ['#fff6c0', '#ffd060', '#ffffff'], gravity: 400 });
     };
 
-    const popBalloon = (w, t) => {
-      w.popped = true;
-      popped++;
-      const p = wallPoint(w.side, balloonH(w, t) + BALLOON_UP, 17);
-      const col = BALLOON_COLORS[w.color];
-      fx.burst(p.x, p.y, { count: 30, speed: 210, life: 1, size: 4, colors: CONFETTI, drag: 2.2, gravity: 160 });
-      fx.burst(p.x, p.y, { count: 8, speed: 140, life: 0.6, size: 5, colors: [col[1], col[2]], drag: 3, gravity: 300 });
-      pops.push({ x: p.x - w.side * 10, y: p.y - 6, life: 0.8 });
+    // what went wrong on a landing, or '' if it was clean
+    const judge = (turns, tol) => {
+      const err = sp.a - turns * TAU;
+      if (Math.abs(err) <= tol) return '';
+      const n = Math.round(sp.a / TAU);
+      const off = Math.abs(sp.a - n * TAU);
+      if (off > tol) return off > 110 * DEG ? 'Landed on your head.' : 'Landed crooked and slammed.';
+      if (turns === 0) return 'Flipped on a no-flip air.';
+      if (n === 0) return 'Forgot to flip.';
+      if (Math.sign(n) !== Math.sign(turns)) return 'Flipped the wrong way.';
+      if (Math.abs(n) < Math.abs(turns)) return 'Only one flip on a double.';
+      return 'Over-rotated into an extra flip.';
     };
 
     const updateCosmetic = (dt) => {
@@ -893,22 +730,14 @@ export default {
       sparks.update(dt);
       for (const c of cloudSet) c.x = ((c.x + c.v * dt + 100) % (W + 200)) - 100;
       for (const q of gulls) q.x = ((q.x + q.v * dt + 30) % (W + 60)) - 30;
-      for (let i = pops.length - 1; i >= 0; i--) {
-        pops[i].life -= dt;
-        pops[i].y -= 30 * dt;
-        if (pops[i].life <= 0) pops.splice(i, 1);
+      for (let i = labels.length - 1; i >= 0; i--) {
+        labels[i].life -= dt;
+        labels[i].y -= 30 * dt;
+        if (labels[i].life <= 0) labels.splice(i, 1);
       }
       for (let i = streaks.length - 1; i >= 0; i--) {
         streaks[i].life -= dt;
         if (streaks[i].life <= 0) streaks.splice(i, 1);
-      }
-      for (let i = flyers.length - 1; i >= 0; i--) {
-        const f = flyers[i];
-        f.vy += 300 * dt;
-        f.x += f.vx * dt;
-        f.y += f.vy * dt;
-        f.rot += f.spin * dt;
-        if (f.y > H + 40 || f.x < -60 || f.x > W + 60) flyers.splice(i, 1);
       }
     };
 
@@ -918,54 +747,58 @@ export default {
 
       update(dt, dir, t) {
         tNow = t;
-        input = dir;
-        gNow = gAt(t);
         const sBefore = st.s;
-        physics(st, dir, gNow, dt);
+        physics(st, gNow, dt);
         if (st.v > 1) facing = 1;
         else if (st.v < -1) facing = -1;
         updateCosmetic(dt);
+        const air = airs[k];
 
-        const side = Math.sign(st.s);
-        const h = hOf(st.s);
-        const w = wins[k];
-
-        // cosmetic: sparks off the coping when you fly out over it, speed streaks
-        if (Math.abs(st.s) > EDGE && Math.abs(sBefore) <= EDGE && Math.abs(st.v) > 150) {
-          sparks.burst(CX + side * LIPX, YB - R, { count: 10, speed: 120, life: 0.4, size: 2, colors: SPARKS, angle: Math.PI / 2 - side * 0.3, spread: 1.6, gravity: 400 });
+        // the bottom: the skater pumps for the next air
+        if (sBefore * st.s < 0 || (sBefore !== 0 && st.s === 0)) {
+          gNow = air.g;
+          st.v = Math.sign(st.v) * Math.sqrt(2 * gNow * (R + air.a));
         }
-        if (Math.abs(st.v) > 380 && Math.random() < 0.5) {
+
+        const was = Math.abs(sBefore) > EDGE;
+        const is = Math.abs(st.s) > EDGE;
+        if (!was && is) {
+          // take-off
+          inAir = true;
+          sp.a = settle;
+          sp.w = 0;
+          settle = 0;
+          if (Math.abs(st.v) > 150) {
+            const side = Math.sign(st.s);
+            sparks.burst(CX + side * LIPX, YB - R, { count: 10, speed: 120, life: 0.4, size: 2, colors: ['#fff6c0', '#ffd060', '#ff8a3a', '#ffffff'], angle: Math.PI / 2 - side * 0.3, spread: 1.6, gravity: 400 });
+          }
+        }
+        if (inAir && air.turns !== null) spinStep(sp, dir, dt);
+        if (was && !is) {
+          // touch-down
+          inAir = false;
+          if (air.turns !== null) {
+            const why = judge(air.turns, tolAt(t));
+            if (why) return die(this, why);
+            const q = riderPos();
+            if (air.turns) {
+              landed++;
+              fx.burst(q.bx, q.by, { count: 26, speed: 200, life: 1, size: 4, colors: CONFETTI, drag: 2.2, gravity: 160 });
+            }
+            labels.push({ x: q.bx - q.sg * 34, y: q.by - 20, life: 0.9, text: air.turns === 0 ? 'CLEAN!' : Math.abs(air.turns) === 2 ? 'DOUBLE!' : 'FLIP!' });
+            settle = sp.a - air.turns * TAU;
+          }
+          sp.a = 0;
+          sp.w = 0;
+          k++;
+          while (airs.length <= k + 1) airs.push(makeAir(airs.length, t));
+        }
+        if (!inAir) settle -= settle * Math.min(1, dt * 10);
+
+        if (Math.abs(st.v) > 520 && Math.random() < 0.5) {
           const q = riderPos();
           streaks.push({ x: q.x - Math.sin(q.phi) * q.sg * (6 + Math.random() * 30), y: q.y - Math.cos(q.phi) * (6 + Math.random() * 30), phi: q.phi, sg: q.sg, len: 12 + Math.random() * 16, life: 0.25 });
         }
-
-        if (!w.free && side === w.side) {
-          if (!w.popped && h >= balloonH(w, t)) popBalloon(w, t);
-          if (h >= droneH(w, t)) {
-            const p = wallPoint(w.side, droneH(w, t) + DRONE_UP, 20);
-            flyers.push({ x: p.x, y: p.y, vx: -w.side * 90, vy: -160, rot: 0, spin: -w.side * 9 });
-            w.hit = true;
-            return die(this, 'Crashed into a camera drone.', 'drone');
-          }
-        }
-
-        // the turnaround at the top of each wall
-        if (vPrev !== 0 && st.v * vPrev <= 0) {
-          if (w.free) {
-            if (side === w.side) {
-              k++;
-              lastAdvance = t;
-            }
-          } else {
-            if (side !== w.side) return die(this, "Didn't make it up the other wall.", 'bail');
-            if (!w.popped) return die(this, 'Turned back without popping the balloon.', 'bail');
-            w.doneAt = clock;
-            k++;
-            lastAdvance = t;
-          }
-        }
-        vPrev = st.v;
-        if (t > 2.5 && t - lastAdvance > 4.2) return die(this, 'Ran out of speed and stalled.', 'bail');
       },
 
       afterlife(dt) {
@@ -1060,103 +893,50 @@ export default {
         // the ramp
         drawSprite(g, ramp, W / 2, H / 2);
 
-        // the walls' windows: the current one bold, the next one faint
+        // the trick cards, floating at the height of each air: the coming one bold, the next faint
         for (let j = k + 1; j >= k; j--) {
-          const w = wins[j];
-          if (!w || w.free) continue;
+          const air = airs[j];
+          if (!air || air.turns === null) continue;
           const cur = j === k && !this.dead;
-          w.seen ??= clock;
-          const alpha = (cur ? 1 : 0.42) * clamp((clock - w.seen) / 0.3, 0, 1);
-          const bh = balloonH(w, tNow);
-          const dh = droneH(w, tNow);
-          // a band on the wall between the balloon and the drone
-          g.globalAlpha = alpha * (cur ? 0.75 : 0.5);
-          g.strokeStyle = cur ? '#7cf05a' : '#e8fff0';
-          g.lineWidth = 4;
-          g.beginPath();
-          for (let hh = bh; hh <= dh + 0.1; hh += Math.max(4, (dh - bh) / 30)) {
-            const p = wallPoint(w.side, Math.min(hh, dh), -6);
-            if (hh === bh) g.moveTo(p.x, p.y);
-            else g.lineTo(p.x, p.y);
-          }
-          g.stroke();
+          air.seen ??= clock;
+          const alpha = (cur ? 1 : 0.45) * clamp((clock - air.seen) / 0.3, 0, 1);
+          const y = YB - R - air.a - 6;
+          const x = CX + air.side * 34;
+          const col = air.turns > 0 ? CALL_RIGHT : air.turns < 0 ? CALL_LEFT : '#7a8a96';
           g.globalAlpha = alpha;
-          // the drone with its no-fly line
-          if (!w.hit) {
-            const p = wallPoint(w.side, dh + DRONE_UP, 22);
-            const q = wallPoint(w.side, dh, 0);
-            g.strokeStyle = cur ? 'rgba(255,60,70,0.85)' : 'rgba(255,90,90,0.6)';
-            g.lineWidth = 1.6;
-            g.setLineDash([4, 3]);
-            g.beginPath();
-            g.moveTo(q.x - w.side * -4, q.y);
-            g.lineTo(q.x - w.side * 48, q.y);
-            g.stroke();
-            g.setLineDash([]);
-            const bobY = Math.sin(clock * 5 + j) * 1.2;
-            drawSprite(g, drone, p.x, p.y + bobY, { rot: Math.sin(clock * 2 + j) * 0.05 });
-            // spinning rotors
-            g.fillStyle = 'rgba(40,44,52,0.5)';
-            for (const dx of [-15, 15]) {
-              const r = 7 + Math.abs(Math.sin(clock * 40 + dx)) * 3;
-              g.beginPath();
-              g.ellipse(p.x + dx, p.y + bobY - 9, r, 1.3, 0, 0, Math.PI * 2);
-              g.fill();
-            }
-            if (cur && Math.sin(clock * 8) > 0) {
-              g.globalCompositeOperation = 'lighter';
-              drawSprite(g, redGlow, p.x - 6, p.y + bobY - 2, { size: 16 });
-              g.globalCompositeOperation = 'source-over';
-              g.fillStyle = '#ff4040';
-              g.fillRect(p.x - 7, p.y + bobY - 3, 2, 2);
-            }
-          }
-          // the balloon on its string
-          if (!w.popped) {
-            const p = wallPoint(w.side, bh + BALLOON_UP, 17);
-            const sway = Math.sin(clock * 2.2 + j) * 0.12;
-            g.strokeStyle = 'rgba(255,255,255,0.8)';
-            g.lineWidth = 0.9;
-            g.beginPath();
-            g.moveTo(p.x, p.y + 11);
-            g.quadraticCurveTo(p.x + Math.sin(clock * 3 + j) * 4, p.y + 20, p.x + Math.sin(clock * 2 + j) * 2, p.y + 28);
-            g.stroke();
-            if (cur) {
-              g.globalCompositeOperation = 'lighter';
-              drawSprite(g, whiteGlow, p.x, p.y - 3, { size: 38, alpha: 0.35 + 0.15 * Math.sin(clock * 6) });
-              g.globalCompositeOperation = 'source-over';
-            }
-            drawSprite(g, balloons[w.color], p.x, p.y, { rot: sway });
-          }
+          // a dashed line to the wall at that height
+          g.strokeStyle = 'rgba(255,255,255,0.8)';
+          g.lineWidth = 1.4;
+          g.setLineDash([4, 4]);
+          g.beginPath();
+          g.moveTo(x + air.side * 46, y);
+          g.lineTo(CX + air.side * (LIPX - 4), y);
+          g.stroke();
+          g.setLineDash([]);
+          const pulse = cur ? 1 + 0.04 * Math.sin(clock * 8) : 1;
+          g.save();
+          g.translate(x, y);
+          g.scale(pulse, pulse);
+          g.fillStyle = 'rgba(20,40,60,0.35)';
+          roundRect(g, -44, -20, 92, 44, 9);
+          g.fill();
+          g.fillStyle = '#fffdf6';
+          roundRect(g, -46, -22, 92, 44, 9);
+          g.fill();
+          g.strokeStyle = col;
+          g.lineWidth = 3;
+          g.stroke();
+          g.textAlign = 'center';
+          g.textBaseline = 'middle';
+          g.fillStyle = col;
+          g.font = '900 19px system-ui, sans-serif';
+          const arrows = air.turns > 0 ? '→'.repeat(air.turns) : air.turns < 0 ? '←'.repeat(-air.turns) : '✋';
+          g.fillText(arrows, 0, -8);
+          g.fillStyle = '#2a1840';
+          g.font = '900 12px system-ui, sans-serif';
+          g.fillText(air.turns === 0 ? 'NO FLIP' : Math.abs(air.turns) === 2 ? 'DOUBLE' : 'FLIP', 0, 11);
+          g.restore();
           g.globalAlpha = 1;
-        }
-
-        // where you'd turn around if you let go now
-        if (!this.dead && Math.abs(st.v) > 20) {
-          const pr = predict(st, gNow);
-          const w = wins[k];
-          if (pr.side && pr.h > 6) {
-            const ok = w.free || (pr.side === w.side && pr.h >= balloonH(w, tNow) && pr.h < droneH(w, tNow));
-            const p = wallPoint(pr.side, pr.h, -6);
-            const s = pr.side;
-            g.globalCompositeOperation = 'lighter';
-            drawSprite(g, ok ? greenGlow : redGlow, p.x, p.y, { size: 26, alpha: 0.6 });
-            g.globalCompositeOperation = 'source-over';
-            g.fillStyle = ok ? '#eaffd8' : '#ffd0c8';
-            g.strokeStyle = 'rgba(20,40,50,0.7)';
-            g.lineWidth = 1.2;
-            g.save();
-            g.translate(p.x, p.y);
-            g.rotate(Math.atan2(-Math.cos(p.phi), -s * Math.sin(p.phi)));
-            g.beginPath();
-            g.moveTo(3, 0);
-            g.lineTo(-8, -5.5);
-            g.lineTo(-8, 5.5);
-            g.closePath();
-            g.fill();
-            g.stroke();
-            g.restore();
-          }
         }
 
         // streaks and the skater
@@ -1172,14 +952,63 @@ export default {
         g.stroke();
         if (!bail) {
           const q = riderPos();
-          const onRamp = Math.abs(st.s) <= EDGE;
-          const moving = st.v > 0 ? 1 : st.v < 0 ? -1 : 0;
-          const pose = onRamp && input && moving ? (input === moving ? 1 : 2) : 0;
+          const air = airs[k];
+          const spin = inAir ? sp.a : settle;
+          // in the air: a ring showing where wheels-down is and the turns done so far
+          if (inAir && air.turns !== null && !this.dead) {
+            const base = Math.atan2(q.ny, q.nx);
+            const tol = tolAt(tNow);
+            const clean = Math.abs(sp.a - air.turns * TAU) <= tol;
+            const col = air.turns > 0 ? CALL_RIGHT : air.turns < 0 ? CALL_LEFT : '#7a8a96';
+            g.strokeStyle = 'rgba(255,255,255,0.5)';
+            g.lineWidth = 3;
+            g.beginPath();
+            g.arc(q.bx, q.by, 33, 0, TAU);
+            g.stroke();
+            if (clean) {
+              g.globalCompositeOperation = 'lighter';
+              drawSprite(g, greenGlow, q.bx + Math.cos(base) * 33, q.by + Math.sin(base) * 33, { size: 30, alpha: 0.8 });
+              g.globalCompositeOperation = 'source-over';
+            }
+            g.strokeStyle = clean ? '#7cf05a' : '#ffffff';
+            g.lineWidth = 6;
+            g.beginPath();
+            g.arc(q.bx, q.by, 33, base - tol, base + tol);
+            g.stroke();
+            // the head's direction
+            const ha = base + sp.a;
+            g.fillStyle = col;
+            g.strokeStyle = '#2a1840';
+            g.lineWidth = 1.2;
+            g.beginPath();
+            g.moveTo(q.bx + Math.cos(ha) * 41, q.by + Math.sin(ha) * 41);
+            g.lineTo(q.bx + Math.cos(ha + 0.2) * 28, q.by + Math.sin(ha + 0.2) * 28);
+            g.lineTo(q.bx + Math.cos(ha - 0.2) * 28, q.by + Math.sin(ha - 0.2) * 28);
+            g.closePath();
+            g.fill();
+            g.stroke();
+            // one dot per turn called, filled as each is done
+            const need = Math.abs(air.turns);
+            const done = air.turns ? Math.floor((Math.sign(air.turns) * sp.a + tol) / TAU) : 0;
+            for (let d = 0; d < need; d++) {
+              const dx = q.bx + (d - (need - 1) / 2) * 12;
+              const dy = q.by + 47;
+              g.fillStyle = d < done ? col : 'rgba(255,255,255,0.35)';
+              g.strokeStyle = '#ffffff';
+              g.lineWidth = 1.5;
+              g.beginPath();
+              g.arc(dx, dy, 4.2, 0, TAU);
+              g.fill();
+              g.stroke();
+            }
+          }
+          const nearBottom = Math.abs(st.s) < HALF + 40;
+          const pose = inAir ? (Math.abs(sp.w) > 1 ? 1 : 0) : nearBottom ? 1 : 0;
           g.save();
-          g.translate(q.x, q.y);
-          g.rotate(q.rot);
+          g.translate(q.bx, q.by);
+          g.rotate(q.rot + spin);
           g.scale(face, 1);
-          g.drawImage(skater[pose].canvas, -17, -48, 34, 50);
+          g.drawImage(skater[pose].canvas, -17, -25, 34, 50);
           g.restore();
         } else {
           const b = bail;
@@ -1204,54 +1033,46 @@ export default {
           g.drawImage(skater[0].canvas, -17, -26, 34, 50);
           g.restore();
         }
-        for (const f of flyers) {
-          g.save();
-          g.translate(f.x, f.y);
-          g.rotate(f.rot);
-          drawSprite(g, drone, 0, 0);
-          g.restore();
-          if (Math.random() < 0.5) fx.burst(f.x, f.y, { count: 1, speed: 20, life: 0.6, size: 5, round: true, colors: ['rgba(60,60,70,0.5)'] });
-        }
         sparks.render(g, true);
         fx.render(g);
         g.font = '900 15px system-ui, sans-serif';
         g.textAlign = 'center';
-        for (const p of pops) {
+        g.textBaseline = 'alphabetic';
+        for (const p of labels) {
           g.globalAlpha = clamp(p.life / 0.5, 0, 1);
           g.fillStyle = '#2a1840';
-          g.fillText('POP!', p.x + 1, p.y + 1);
+          g.fillText(p.text, p.x + 1, p.y + 1);
           g.fillStyle = '#ffffff';
-          g.fillText('POP!', p.x, p.y);
+          g.fillText(p.text, p.x, p.y);
         }
         g.globalAlpha = 1;
 
         drawSprite(g, vignette, W / 2, H / 2);
         g.restore();
 
-        // the balloon count
+        // the trick count
         g.font = '800 14px system-ui, sans-serif';
         g.textAlign = 'right';
         g.fillStyle = 'rgba(42,24,64,0.6)';
-        g.fillText(`🎈 ${popped}`, W - 11, H - 13);
+        g.fillText(`🛹 ${landed}`, W - 11, H - 13);
         g.fillStyle = '#ffffff';
-        g.fillText(`🎈 ${popped}`, W - 12, H - 14);
+        g.fillText(`🛹 ${landed}`, W - 12, H - 14);
 
         // a hint at the start
-        if (tNow < 3.6 && !this.dead) {
-          g.globalAlpha = clamp(3.6 - tNow, 0, 1) * 0.95;
-          g.font = '800 14px system-ui, sans-serif';
+        if (tNow < 4 && !this.dead) {
+          g.globalAlpha = clamp(4 - tNow, 0, 1) * 0.95;
           g.textAlign = 'center';
-          const msg = 'hold the way you roll to pump';
-          g.fillStyle = 'rgba(20,50,70,0.55)';
-          g.fillText(msg, W / 2 + 1, 341);
-          g.fillStyle = '#ffffff';
-          g.fillText(msg, W / 2, 340);
-          g.font = '700 12px system-ui, sans-serif';
-          const msg2 = 'the arrow shows how high you will fly';
-          g.fillStyle = 'rgba(20,50,70,0.55)';
-          g.fillText(msg2, W / 2 + 1, 361);
-          g.fillStyle = '#ffffff';
-          g.fillText(msg2, W / 2, 360);
+          const lines = [
+            ['800 14px system-ui, sans-serif', 'hold → or ← in the air to flip', 500],
+            ['700 12px system-ui, sans-serif', 'do what the card says, land wheels-down', 520],
+          ];
+          for (const [font, msg, y] of lines) {
+            g.font = font;
+            g.fillStyle = 'rgba(20,50,70,0.55)';
+            g.fillText(msg, W / 2 + 1, y + 1);
+            g.fillStyle = '#ffffff';
+            g.fillText(msg, W / 2, y);
+          }
           g.globalAlpha = 1;
         }
       },
