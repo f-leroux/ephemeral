@@ -1,6 +1,6 @@
 // Champagne Waltz — a waiter in a white mess jacket crosses a candlelit palazzo ballroom in the
 // middle of a grand ball, a silver tray of brimming coupes held high, weaving between waltzing
-// couples and dinner tables. Nothing stops instantly on the polished marble: every start, stop
+// couples. Nothing stops instantly on the polished marble: every start, stop
 // and turn sloshes the champagne, and the slosh rings on like a pendulum, so a jerky dodge (or a
 // second one in time with the first wave) slops it over the rim. A footman tops the glasses up
 // every 15s, so there's less and less room in them as the dancing gets busier.
@@ -19,8 +19,8 @@ import {
 
 const PY = 540; // the waiter's centre
 const RP = 11; // the waiter's radius
-const TRAY_DX = 15; // where the tray is held, from the waiter's centre
-const TRAY_DY = -17;
+const TRAY_DX = 17; // where the tray is held, from the waiter's centre
+const TRAY_DY = -23;
 const MINX = 28;
 const MAXX = 332;
 const STEP = 1 / 120;
@@ -64,56 +64,49 @@ const GLASS = ['#ffffff', '#e8f4ff', '#bcd8f0'];
 function paintFloor(W, H, rng) {
   return makeSprite(W, H, (g) => {
     g.translate(-W / 2, -H / 2);
-    // ivory marble
-    g.fillStyle = '#ece0c8';
+    // warm honey marble, kept soft and low in contrast so the dancers stand out
+    g.fillStyle = '#b89c80';
     g.fillRect(0, 0, W, H);
     // soft clouding (drawn a tile up and down too, so the scrolling tile has no seam)
     const wrap = (y, draw) => [-H, 0, H].forEach((o) => draw(y + o));
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 24; i++) {
       const x = rng.range(0, W);
-      const r = rng.range(30, 80);
+      const r = rng.range(50, 110);
       const warm = rng.chance(0.5);
       wrap(rng.range(0, H), (y) => {
         const c = g.createRadialGradient(x, y, 1, x, y, r);
-        c.addColorStop(0, warm ? 'rgba(214,190,150,0.35)' : 'rgba(255,250,238,0.45)');
-        c.addColorStop(1, 'rgba(214,190,150,0)');
+        c.addColorStop(0, warm ? 'rgba(150,112,86,0.22)' : 'rgba(214,192,164,0.25)');
+        c.addColorStop(1, 'rgba(184,156,128,0)');
         g.fillStyle = c;
         g.fillRect(x - r, y - r, r * 2, r * 2);
       });
     }
-    // black marble diamonds (a diagonal checker; the 40px period divides the tile height)
-    const D = 20;
-    const diamond = (cx, cy) => {
-      g.beginPath();
-      g.moveTo(cx, cy - D);
-      g.lineTo(cx + D, cy);
-      g.lineTo(cx, cy + D);
-      g.lineTo(cx - D, cy);
-      g.closePath();
-    };
-    for (let j = -1; j <= H / 40 + 1; j++) {
-      for (let i = -1; i <= W / 40 + 1; i++) {
-        const cx = i * 40;
-        const cy = j * 40;
-        const grad = g.createLinearGradient(cx - D, cy - D, cx + D, cy + D);
-        grad.addColorStop(0, '#3a2a30');
-        grad.addColorStop(0.5, '#1d1418');
-        grad.addColorStop(1, '#2c1e24');
-        g.fillStyle = grad;
-        diamond(cx, cy);
+    // large, barely darker diamonds (the 80px period divides the tile height)
+    const D = 40;
+    g.fillStyle = 'rgba(110,74,56,0.1)';
+    for (let j = -1; j <= H / 80 + 1; j++) {
+      for (let i = -1; i <= W / 80 + 1; i++) {
+        const cx = i * 80;
+        const cy = j * 80;
+        g.beginPath();
+        g.moveTo(cx, cy - D);
+        g.lineTo(cx + D, cy);
+        g.lineTo(cx, cy + D);
+        g.lineTo(cx - D, cy);
+        g.closePath();
         g.fill();
       }
     }
-    // marble veins
-    for (let i = 0; i < 26; i++) {
+    // faint veins
+    for (let i = 0; i < 12; i++) {
       const x0 = rng.range(0, W);
       const y0 = rng.range(0, H);
-      const len = rng.range(40, 120);
+      const len = rng.range(40, 110);
       const a = rng.range(-0.6, 0.6) + Math.PI / 2;
       const light = rng.chance(0.5);
       wrap(y0, (y) => {
-        g.strokeStyle = light ? 'rgba(255,255,255,0.22)' : 'rgba(120,90,70,0.2)';
-        g.lineWidth = rng.range(0.5, 1.2);
+        g.strokeStyle = light ? 'rgba(240,226,204,0.16)' : 'rgba(110,80,60,0.12)';
+        g.lineWidth = rng.range(0.5, 1);
         g.beginPath();
         g.moveTo(x0, y);
         let x = x0;
@@ -126,56 +119,17 @@ function paintFloor(W, H, rng) {
         g.stroke();
       });
     }
-    // gold inlay along the diamond edges
-    g.strokeStyle = 'rgba(214,168,74,0.55)';
-    g.lineWidth = 0.8;
+    // a thin, quiet brass inlay along the diamond edges
+    g.strokeStyle = 'rgba(232,196,120,0.18)';
+    g.lineWidth = 0.7;
     g.beginPath();
-    for (let k = -H; k <= W + H; k += 40) {
-      g.moveTo(k, 0);
-      g.lineTo(k - H, H);
-      g.moveTo(k - H, 0);
-      g.lineTo(k, H);
+    for (let k = -H; k <= W + H; k += 80) {
+      g.moveTo(k + 40, 0);
+      g.lineTo(k + 40 - H, H);
+      g.moveTo(k + 40 - H, 0);
+      g.lineTo(k + 40, H);
     }
     g.stroke();
-    // an inlaid compass-rose medallion in the middle of the tile
-    const mx = W / 2;
-    const my = H / 2;
-    const ring = g.createRadialGradient(mx, my, 10, mx, my, 70);
-    ring.addColorStop(0, '#f4ead4');
-    ring.addColorStop(0.8, '#e6d6b4');
-    ring.addColorStop(1, '#c9a860');
-    g.fillStyle = ring;
-    g.beginPath();
-    g.arc(mx, my, 70, 0, Math.PI * 2);
-    g.fill();
-    g.strokeStyle = '#b8862e';
-    g.lineWidth = 3;
-    g.stroke();
-    g.lineWidth = 1;
-    g.beginPath();
-    g.arc(mx, my, 63, 0, Math.PI * 2);
-    g.stroke();
-    for (let k = 0; k < 16; k++) {
-      const a = (k / 16) * Math.PI * 2;
-      const long = k % 2 === 0;
-      const r1 = long ? 58 : 38;
-      const w = long ? 0.16 : 0.2;
-      g.fillStyle = k % 4 === 0 ? '#8e1c2c' : long ? '#1d1418' : '#c9963a';
-      g.beginPath();
-      g.moveTo(mx + Math.cos(a) * r1, my + Math.sin(a) * r1);
-      g.lineTo(mx + Math.cos(a + w) * 14, my + Math.sin(a + w) * 14);
-      g.lineTo(mx, my);
-      g.lineTo(mx + Math.cos(a - w) * 14, my + Math.sin(a - w) * 14);
-      g.closePath();
-      g.fill();
-    }
-    g.fillStyle = '#d8aa48';
-    g.beginPath();
-    g.arc(mx, my, 6, 0, Math.PI * 2);
-    g.fill();
-    // a soft polish sheen
-    g.fillStyle = 'rgba(255,255,255,0.05)';
-    for (let i = 0; i < 6; i++) g.fillRect(rng.range(0, W), 0, rng.range(8, 30), H);
   }, 1);
 }
 
@@ -357,150 +311,175 @@ function paintCouple(rng, [gown, gownDark, trim], hair) {
   });
 }
 
-// a round dinner table: white cloth, gilt plates, a rose centrepiece and a candle
-function paintTable(rng) {
-  return makeSprite(48, 48, (g) => {
-    g.fillStyle = 'rgba(20,4,10,0.3)';
+// the waiter seen from above, walking up the room: white mess jacket with gold epaulettes and
+// buttons, a napkin over his left arm folded behind his back, his right arm raised to the tray (the
+// tray itself is drawn live, champagne and all). Two frames, one per stride.
+function paintWaiter(stride) {
+  return makeSprite(52, 52, (g) => {
+    const ink = 'rgba(36,8,18,0.9)';
+    g.fillStyle = 'rgba(30,8,14,0.33)';
     g.beginPath();
-    g.arc(3, 4, 21, 0, Math.PI * 2);
+    g.ellipse(2.5, 5, 16, 12, 0, 0, Math.PI * 2);
     g.fill();
-    // the hem of the cloth, gathered in swags
-    g.fillStyle = '#d6cbb6';
-    g.beginPath();
-    for (let i = 0; i <= 24; i++) {
-      const a = (i / 24) * Math.PI * 2;
-      const rr = 19.5 + (i % 2 ? -1.2 : 0.6);
-      g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
-    }
-    g.closePath();
-    g.fill();
-    const cg = g.createRadialGradient(-6, -6, 2, 0, 0, 18);
-    cg.addColorStop(0, '#ffffff');
-    cg.addColorStop(0.7, '#f3ede2');
-    cg.addColorStop(1, '#ddd2bf');
-    g.fillStyle = cg;
-    g.beginPath();
-    g.arc(0, 0, 17, 0, Math.PI * 2);
-    g.fill();
-    // place settings
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2 + 0.3;
-      const x = Math.cos(a) * 12;
-      const y = Math.sin(a) * 12;
-      g.fillStyle = '#fffdf8';
+    // black trousers and polished shoes, one foot ahead of the other
+    for (const sd of [-1, 1]) {
+      const fy = sd === stride ? -9.5 : 9;
+      g.fillStyle = '#0e0c12';
       g.beginPath();
-      g.arc(x, y, 3.3, 0, Math.PI * 2);
+      g.ellipse(sd * 4.2, fy * 0.55, 3.4, 5.5, 0, 0, Math.PI * 2);
       g.fill();
-      g.strokeStyle = '#c99a3e';
-      g.lineWidth = 0.7;
-      g.stroke();
-      g.fillStyle = 'rgba(200,230,255,0.8)';
+      const sg = g.createLinearGradient(sd * 4.2 - 3, fy - 3, sd * 4.2 + 3, fy + 3);
+      sg.addColorStop(0, '#5a5664');
+      sg.addColorStop(0.4, '#16131a');
+      sg.addColorStop(1, '#050407');
+      g.fillStyle = sg;
       g.beginPath();
-      g.arc(Math.cos(a + 0.35) * 8, Math.sin(a + 0.35) * 8, 1.1, 0, Math.PI * 2);
+      g.ellipse(sd * 4.2, fy, 2.9, 4.4, 0, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.5)';
+      g.beginPath();
+      g.ellipse(sd * 4.2 - 0.8, fy - 2, 0.8, 1.3, 0, 0, Math.PI * 2);
       g.fill();
     }
-    // roses
-    for (let i = 0; i < 7; i++) {
-      const a = (i / 7) * Math.PI * 2;
-      const x = Math.cos(a) * 4.5;
-      const y = Math.sin(a) * 4.5;
-      g.fillStyle = '#2a5a2a';
-      g.beginPath();
-      g.ellipse(x * 1.3, y * 1.3, 2, 1.1, a, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = rng.pick(['#c41f3a', '#a5142c', '#e0405a']);
-      g.beginPath();
-      g.arc(x, y, 2.3, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = 'rgba(80,0,16,0.6)';
-      g.beginPath();
-      g.arc(x + 0.3, y + 0.3, 0.9, 0, Math.PI * 2);
-      g.fill();
-    }
-    // the candle
-    g.fillStyle = '#fff6dc';
+    // tails of the jacket, a little behind him
+    g.fillStyle = '#d8d0c2';
     g.beginPath();
-    g.arc(0, 0, 2, 0, Math.PI * 2);
+    g.moveTo(-8, 3);
+    g.quadraticCurveTo(0, 12, 8, 3);
+    g.quadraticCurveTo(0, 7, -8, 3);
     g.fill();
-    g.fillStyle = '#ffd36a';
-    g.beginPath();
-    g.arc(0, 0, 1, 0, Math.PI * 2);
-    g.fill();
-  });
-}
-
-// the waiter seen from above, walking up the room: white mess jacket, gold epaulettes, his
-// right arm raised to the tray (the tray itself is drawn live, champagne and all)
-function paintWaiter() {
-  return makeSprite(44, 44, (g) => {
-    g.fillStyle = 'rgba(20,4,10,0.35)';
-    g.beginPath();
-    g.ellipse(2, 5, 15, 11, 0, 0, Math.PI * 2);
-    g.fill();
-    // black trousers stepping out under the jacket
-    g.fillStyle = '#121016';
-    g.beginPath();
-    g.ellipse(-4, 8, 3, 4, 0, 0, Math.PI * 2);
-    g.ellipse(4, 6, 3, 4, 0, 0, Math.PI * 2);
-    g.fill();
-    // left arm folded behind the back with a napkin
-    g.fillStyle = '#e8e2d6';
-    g.beginPath();
-    g.ellipse(-11, 3, 3, 4.5, 0.4, 0, Math.PI * 2);
-    g.fill();
-    g.fillStyle = '#ffffff';
-    g.beginPath();
-    g.roundRect(-9, 4, 9, 4, 1.5);
-    g.fill();
-    // right arm raised to the tray
-    g.strokeStyle = '#efe9de';
-    g.lineWidth = 5;
+    // left arm bent behind the back, a white napkin draped over it
+    g.strokeStyle = ink;
+    g.lineWidth = 6.6;
     g.lineCap = 'round';
     g.beginPath();
-    g.moveTo(9, -1);
-    g.quadraticCurveTo(14, -6, 12, -13);
+    g.moveTo(-11, -1);
+    g.quadraticCurveTo(-14, 5, -6, 6.5);
     g.stroke();
-    g.strokeStyle = 'rgba(150,140,125,0.6)';
-    g.lineWidth = 1;
-    g.beginPath();
-    g.moveTo(11, 0);
-    g.quadraticCurveTo(16, -6, 14, -12);
+    g.strokeStyle = '#f2ede3';
+    g.lineWidth = 5;
     g.stroke();
-    // the jacket
-    const jg = g.createLinearGradient(-12, -8, 12, 8);
-    jg.addColorStop(0, '#ffffff');
-    jg.addColorStop(0.55, '#ece6da');
-    jg.addColorStop(1, '#b9b0a0');
-    g.fillStyle = jg;
-    g.beginPath();
-    g.ellipse(0, 0, 12, 7.5, 0, 0, Math.PI * 2);
-    g.fill();
-    g.strokeStyle = 'rgba(40,8,18,0.85)';
-    g.lineWidth = 1.3;
-    g.stroke();
-    // epaulettes
-    for (const sx of [-1, 1]) {
-      g.fillStyle = '#e2b347';
-      g.beginPath();
-      g.ellipse(sx * 8.5, -1, 3, 2.2, 0, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = '#fff1b8';
-      g.fillRect(sx * 8.5 - 1.5, -2, 3, 0.8);
-    }
-    // slicked black hair with a neat parting
-    const hg = g.createRadialGradient(-1.5, -2.5, 0.5, 0, 0, 5.5);
-    hg.addColorStop(0, '#5a5060');
-    hg.addColorStop(0.5, '#1a1620');
-    hg.addColorStop(1, '#08060a');
-    g.fillStyle = hg;
-    g.beginPath();
-    g.arc(0, -1, 5, 0, Math.PI * 2);
-    g.fill();
-    g.strokeStyle = 'rgba(255,255,255,0.4)';
+    g.fillStyle = '#ffffff';
+    g.strokeStyle = 'rgba(120,110,100,0.7)';
     g.lineWidth = 0.6;
     g.beginPath();
-    g.moveTo(-1.5, -5.5);
-    g.lineTo(-1.5, 2.5);
+    g.moveTo(-13.5, 1.5);
+    g.lineTo(-9.5, 1);
+    g.lineTo(-9, 10);
+    g.lineTo(-11.5, 8.5);
+    g.lineTo(-14, 10);
+    g.closePath();
+    g.fill();
+    g.stroke();
+    // right arm raised to the tray, ending in a white glove
+    g.strokeStyle = ink;
+    g.lineWidth = 6.6;
+    g.beginPath();
+    g.moveTo(10.5, -1);
+    g.quadraticCurveTo(17, -6, 14.5, -17);
+    g.stroke();
+    const ag = g.createLinearGradient(9, 0, 16, -17);
+    ag.addColorStop(0, '#d9d1c3');
+    ag.addColorStop(0.5, '#ffffff');
+    ag.addColorStop(1, '#e8e2d6');
+    g.strokeStyle = ag;
+    g.lineWidth = 5;
+    g.stroke();
+    g.fillStyle = '#d4c9a0';
+    g.fillRect(12.6, -13.5, 4.6, 1.2); // gold cuff
+    // the jacket: broad shoulders tapering to the back
+    const jg = g.createLinearGradient(-12, -8, 12, 9);
+    jg.addColorStop(0, '#ffffff');
+    jg.addColorStop(0.5, '#f1ece2');
+    jg.addColorStop(1, '#c8bfae');
+    g.fillStyle = jg;
+    g.beginPath();
+    g.moveTo(-13, -1);
+    g.bezierCurveTo(-13, -8, -6, -8.5, 0, -8.5);
+    g.bezierCurveTo(6, -8.5, 13, -8, 13, -1);
+    g.bezierCurveTo(13, 5, 7, 6.5, 0, 6.5);
+    g.bezierCurveTo(-7, 6.5, -13, 5, -13, -1);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = ink;
+    g.lineWidth = 1.3;
+    g.stroke();
+    // back seam and shoulder seams
+    g.strokeStyle = 'rgba(140,128,110,0.55)';
+    g.lineWidth = 0.7;
+    g.beginPath();
+    g.moveTo(0, 3);
+    g.lineTo(0, 6.3);
+    g.moveTo(-7, -6.5);
+    g.quadraticCurveTo(-9, -1, -7.5, 4);
+    g.moveTo(7, -6.5);
+    g.quadraticCurveTo(9, -1, 7.5, 4);
+    g.stroke();
+    // a soft sheen across the shoulders
+    g.fillStyle = 'rgba(255,255,255,0.65)';
+    g.beginPath();
+    g.ellipse(-7, -5.2, 3.2, 1.3, -0.3, 0, Math.PI * 2);
+    g.fill();
+    // gold epaulettes with a short fringe
+    for (const sd of [-1, 1]) {
+      const ex = sd * 9.8;
+      g.strokeStyle = '#b07c1e';
+      g.lineWidth = 0.8;
+      g.beginPath();
+      for (let k = -3; k <= 3; k++) {
+        g.moveTo(ex + k * 0.9, -3);
+        g.lineTo(ex + k * 1.1 + sd * 1.6, 0.6);
+      }
+      g.stroke();
+      const eg = g.createRadialGradient(ex - 1, -4.5, 0.3, ex, -3.5, 3.5);
+      eg.addColorStop(0, '#fff3c2');
+      eg.addColorStop(0.5, '#e6b84a');
+      eg.addColorStop(1, '#9a6a16');
+      g.fillStyle = eg;
+      g.beginPath();
+      g.ellipse(ex, -3.6, 3.4, 2.4, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+    // a black collar and the back of the neck
+    g.fillStyle = '#16121a';
+    g.beginPath();
+    g.ellipse(0, 1.2, 5.3, 2.4, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#e2b190';
+    g.beginPath();
+    g.ellipse(0, 1.4, 3.3, 1.8, 0, 0, Math.PI * 2);
+    g.fill();
+    // ears
+    g.fillStyle = '#e6b08c';
+    for (const sd of [-1, 1]) {
+      g.beginPath();
+      g.ellipse(sd * 4.9, -1.2, 1.3, 1.9, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+    // the head: glossy, neatly combed black hair with a side parting
+    const hg = g.createRadialGradient(-1.8, -3.6, 0.4, 0, -1.2, 5.6);
+    hg.addColorStop(0, '#6a6274');
+    hg.addColorStop(0.45, '#221d28');
+    hg.addColorStop(1, '#09070b');
+    g.fillStyle = hg;
+    g.beginPath();
+    g.ellipse(0, -1.4, 4.6, 5.2, 0, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = ink;
+    g.lineWidth = 0.8;
+    g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,0.45)';
+    g.lineWidth = 0.6;
+    g.beginPath();
+    g.moveTo(-1.6, -6.2);
+    g.quadraticCurveTo(-1.9, -2.6, -1.4, 1.2);
+    g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,0.16)';
+    g.beginPath();
+    for (const dx of [0.6, 1.9, 3]) {
+      g.moveTo(dx, -6);
+      g.quadraticCurveTo(dx + 0.6, -2.6, dx, 0.8);
+    }
     g.stroke();
   });
 }
@@ -610,11 +589,9 @@ export default {
     const wallL = paintWall(H, false);
     const wallR = paintWall(H, true);
     const couples = GOWNS.map((c, i) => paintCouple(art, c, HAIR[i % HAIR.length]));
-    const tables = [paintTable(art), paintTable(art)];
-    const waiter = paintWaiter();
+    const waiter = [paintWaiter(-1), paintWaiter(1)];
     const tray = paintTray();
     const sparkle = paintSparkle();
-    const candle = glowSprite('rgba(255,190,90,1)', 24);
     const pool = glowSprite('rgba(255,200,120,1)', 90);
     const goldGlow = glowSprite('rgba(255,215,120,1)', 30);
     const redGlow = glowSprite('rgba(255,60,70,1)', 30);
@@ -659,7 +636,7 @@ export default {
       return lerp(a.x, b.x, clamp((t - a.t) / (b.t - a.t), 0, 1));
     }
 
-    // ---- dancers and tables. x, s (distance up the room) at time t ----
+    // ---- dancers. x, s (distance up the room) at time t ----
     const obstacles = [];
     function posOf(o, t) {
       let x = o.x0 + o.vx * (t - o.T);
@@ -704,7 +681,6 @@ export default {
     }
 
     let lastT = 0;
-    let lastRow = 0;
     function place(until) {
       while (lastT < until) {
         const first = lastT === 0;
@@ -713,39 +689,25 @@ export default {
         extendRoute(T + 3);
         const s0 = distAt(T);
         const margin = lerp(16, 10, p);
-        if (T > 7 && T - lastRow > 2.4 && plan.chance(lerp(0.18, 0.32, p))) {
-          // a row of dinner tables across the floor, with one way through
-          lastRow = T;
-          const gap = lerp(64, 46, p);
-          const rx = routeAt(T);
-          const off = plan.range(0, 20);
-          for (let x = MINX + 6 + off; x <= MAXX - 4; x += 44) {
-            const o = { kind: 'table', r: 17, x0: x + plan.range(-3, 3), vx: 0, s0: s0 + plan.range(-6, 6), T, art: plan.int(0, 1), spin: plan.range(0, 6.28) };
-            if (Math.abs(o.x0 - rx) < gap + 17) continue;
-            if (!clearOfRoute(o, margin) || !clearOfOthers(o)) continue;
-            obstacles.push(o);
+        const n = Math.max(1, Math.round(lerp(1.3, 2.7, p) + plan.range(-0.45, 0.45)));
+        for (let k = 0, tries = 0; k < n && tries < 14; tries++) {
+          let o;
+          if (T > 24 && plan.chance(lerp(0.25, 0.45, p))) {
+            // a couple twirling round and round a gilt ring on the floor
+            o = {
+              kind: 'orbit', r: 21, x0: plan.range(70, W - 70), vx: 0, s0: s0 + plan.range(-20, 20), T,
+              orbit: true, ro: plan.range(26, 36), w: (plan.chance(0.5) ? 1 : -1) * plan.range(1.5, lerp(2, 2.8, p)), ph: plan.range(0, 6.28),
+            };
+          } else {
+            const drift = lerp(14, T > 36 ? 70 : 52, p);
+            o = { kind: 'couple', r: 22, x0: plan.range(40, W - 40), vx: plan.range(-1, 1) * drift, s0: s0 + plan.range(-25, 25), T };
           }
-        } else {
-          const n = Math.max(1, Math.round(lerp(1.1, 2.4, p) + plan.range(-0.45, 0.45)));
-          for (let k = 0, tries = 0; k < n && tries < 14; tries++) {
-            let o;
-            if (T > 24 && plan.chance(lerp(0.25, 0.45, p))) {
-              // a couple twirling round and round a gilt ring on the floor
-              o = {
-                kind: 'orbit', r: 21, x0: plan.range(70, W - 70), vx: 0, s0: s0 + plan.range(-20, 20), T,
-                orbit: true, ro: plan.range(26, 36), w: (plan.chance(0.5) ? 1 : -1) * plan.range(1.5, lerp(2, 2.8, p)), ph: plan.range(0, 6.28),
-              };
-            } else {
-              const drift = lerp(14, T > 36 ? 70 : 52, p);
-              o = { kind: 'couple', r: 22, x0: plan.range(40, W - 40), vx: plan.range(-1, 1) * drift, s0: s0 + plan.range(-25, 25), T };
-            }
-            o.art = plan.int(0, couples.length - 1);
-            o.spin = plan.range(0, 6.28);
-            o.spinV = (plan.chance(0.75) ? 1 : -1) * plan.range(2.2, 3.2);
-            if (!inRoom(o) || !clearOfRoute(o, margin) || !clearOfOthers(o)) continue;
-            obstacles.push(o);
-            k++;
-          }
+          o.art = plan.int(0, couples.length - 1);
+          o.spin = plan.range(0, 6.28);
+          o.spinV = (plan.chance(0.75) ? 1 : -1) * plan.range(2.2, 3.2);
+          if (!inRoom(o) || !clearOfRoute(o, margin) || !clearOfOthers(o)) continue;
+          obstacles.push(o);
+          k++;
         }
         lastT = T;
       }
@@ -757,7 +719,7 @@ export default {
     // ---- state ----
     const fx = createParticles();
     const glints = createParticles();
-    const motes = Array.from({ length: 34 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: 0.6 + Math.random() * 1.4, sp: 8 + Math.random() * 18, ph: Math.random() * 6.28 }));
+    const motes = Array.from({ length: 14 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: 0.6 + Math.random() * 1.4, sp: 8 + Math.random() * 18, ph: Math.random() * 6.28 }));
     const popups = [];
 
     let x = W / 2;
@@ -860,7 +822,7 @@ export default {
           }
           const R = o.r + RP;
           if ((p.x - x) ** 2 + (y - PY) ** 2 < R * R) {
-            const what = o.kind === 'table' ? 'Walked into a dinner table.' : o.kind === 'orbit' ? 'Swept up by a twirling couple.' : 'Bumped into a waltzing couple.';
+            const what = o.kind === 'orbit' ? 'Swept up by a twirling couple.' : 'Bumped into a waltzing couple.';
             die(`${what} The tray went flying.`, 'bump');
             return;
           }
@@ -876,7 +838,7 @@ export default {
           // a few drops lapping over the edge as a warning
           fx.burst(x + TRAY_DX + Math.sign(-s) * 6, PY + TRAY_DY, { count: 1, speed: 70, life: 0.5, size: 2.2, round: true, drag: 2, angle: s > 0 ? 0.3 : Math.PI - 0.3, spread: 0.8, colors: FIZZ });
         }
-        if (Math.random() < dt * 6) {
+        if (Math.random() < dt * 2) {
           glints.burst(Math.random() * W, Math.random() * H, { count: 1, speed: 4, life: 0.9, size: 1, colors: ['#fff1c0'] });
         }
 
@@ -917,7 +879,7 @@ export default {
           const y = PY - (k * span - dist) - 200;
           if (y < -200 || y > H + 200) continue;
           const cx = k % 2 ? W * 0.3 : W * 0.7;
-          const flick = 0.2 + 0.03 * Math.sin(clock * 7 + k) + 0.02 * Math.sin(clock * 13 + k * 2);
+          const flick = 0.12 + 0.02 * Math.sin(clock * 7 + k) + 0.02 * Math.sin(clock * 13 + k * 2);
           drawSprite(g, pool, cx, y, { size: 300, alpha: flick });
         }
         g.globalCompositeOperation = 'source-over';
@@ -964,27 +926,13 @@ export default {
           }
         }
 
-        // ---- tables and dancers ----
+        // ---- dancers ----
         for (const o of obstacles) {
           const p = posOf(o, time);
           const y = PY - (p.s - dist);
           if (y < -50 || y > H + 50) continue;
-          if (o.kind === 'table') {
-            drawSprite(g, tables[o.art], p.x, y, { size: 48, rot: o.spin });
-          } else {
-            const rot = o.spin + o.spinV * clock;
-            drawSprite(g, couples[o.art], p.x, y, { size: 64, rot });
-          }
+          drawSprite(g, couples[o.art], p.x, y, { size: 64, rot: o.spin + o.spinV * clock });
         }
-        g.globalCompositeOperation = 'lighter';
-        for (const o of obstacles) {
-          if (o.kind !== 'table') continue;
-          const p = posOf(o, time);
-          const y = PY - (p.s - dist);
-          if (y < -50 || y > H + 50) continue;
-          drawSprite(g, candle, p.x, y, { size: 34 + Math.sin(clock * 9 + o.x0) * 3, alpha: 0.75 });
-        }
-        g.globalCompositeOperation = 'source-over';
 
         // ---- the waiter ----
         const r = clamp(s / thr, -1.3, 1.3);
@@ -1001,7 +949,8 @@ export default {
         g.globalCompositeOperation = 'source-over';
         const lean = v / VMAX;
         const bob = game.dead ? 0 : Math.sin(walk * 2) * 0.06;
-        drawSprite(g, waiter, x, PY, { size: 54, rot: lean * 0.12 + bob });
+        const frame = game.dead ? 0 : Math.floor(dist / 46) % 2; // a stride every 46px of floor
+        drawSprite(g, waiter[frame], x, PY, { size: 64, rot: lean * 0.12 + bob });
         if (!(game.dead && cause === 'bump')) {
           const tx = x + TRAY_DX + lean * 1.5;
           const ty = PY + TRAY_DY;
@@ -1149,7 +1098,7 @@ export default {
 
         // floating gold dust and crystal glints from the chandeliers above
         g.globalCompositeOperation = 'lighter';
-        g.fillStyle = 'rgba(255,220,150,0.5)';
+        g.fillStyle = 'rgba(255,220,150,0.3)';
         for (const m of motes) {
           const y = (m.y + clock * m.sp + dist * 0.25) % (H + 10);
           const mx = (m.x + Math.sin(clock * 0.7 + m.ph) * 12 + W) % W;
