@@ -2,11 +2,11 @@
 // a moonlit graveyard with a glowing pail of candy, and the ghosts want it. Every ghost drifts down
 // out of the fog and homes in on wherever the kid is, a little slower than the kid but with
 // momentum, so the trick is to lure it close and sidestep at the last moment (it overshoots).
-// Rows of headstones narrow where you can run from 5s; from 12s banshees hover at the top, stare
-// (a red aim line), lock on and swoop straight down through where you stood; from 22s bats flap
-// down in zigzags; from 30s ghosts come in pairs. Ghosts get faster, sharper and more frequent.
-// Every arrival time is planned up front from the rng, and headstone rows never pass the kid at the
-// same moment as a ghost, so there's always time to juke.
+// From 12s banshees hover at the top, stare (a red aim line), lock on and swoop straight down
+// through where you stood; from 22s bats flap down in zigzags; from 30s ghosts come in pairs.
+// Ghosts get faster, sharper and more frequent. Every arrival time is planned up front from the rng.
+// The headstones are only scenery: scattered, faded into the grass and drawn under everything, so
+// the kid and the ghosts pass right over them.
 
 import {
   createParticles,
@@ -14,7 +14,6 @@ import {
   progress,
   lerp,
   clamp,
-  circleRect,
   makeSprite,
   drawSprite,
   glowSprite,
@@ -182,10 +181,10 @@ function paintFence(H, flip) {
 
 // headstones in a three-quarter view: the face toward you, the ground point at the bottom
 const STONES = {
-  round: { w: 30, h: 42, hit: 28 },
-  cross: { w: 28, h: 46, hit: 22 },
-  obelisk: { w: 22, h: 54, hit: 18 },
-  tomb: { w: 46, h: 34, hit: 42 },
+  round: { w: 30, h: 42 },
+  cross: { w: 28, h: 46 },
+  obelisk: { w: 22, h: 54 },
+  tomb: { w: 46, h: 34 },
 };
 
 function stoneFace(g, kind) {
@@ -858,35 +857,11 @@ export default {
     }
     spawns.sort((a, b) => a.at - b.at);
 
-    // rows of headstones, each with a gap, never passing the kid at the same moment as a ghost
-    const rows = [];
-    let R = 5.5;
-    while (R < 62) {
-      const p = progress(R, 60, 1.3);
-      const clearance = lerp(0.55, 0.32, p);
-      let tries = 0;
-      while (arrivals.some((a) => Math.abs(a - R) < clearance) && tries++ < 40) R += 0.05;
-      if (tries < 40) {
-        const gw = lerp(120, 78, p);
-        const gc = plan.range(MINX + gw / 2, MAXX - gw / 2);
-        const stones = [];
-        let x = MINX - 6 + plan.range(0, 16);
-        while (x < MAXX + 10) {
-          const kind = plan.chance(0.12) ? 'tomb' : plan.pick(['round', 'round', 'cross', 'obelisk']);
-          const hw = STONES[kind].hit / 2;
-          const sx = x + hw;
-          if (sx + hw > gc - gw / 2 && sx - hw < gc + gw / 2) {
-            x = gc + gw / 2 + 2;
-            continue;
-          }
-          if (sx + hw <= MAXX + 12 && !plan.chance(lerp(0.2, 0.1, p))) {
-            stones.push({ kind, x: sx, dy: plan.range(-5, 5), art: plan.int(0, 1) });
-          }
-          x += hw * 2 + plan.range(12, 30);
-        }
-        rows.push({ s: distAt(R), stones });
-      }
-      R += lerp(2.8, 1.5, p) * plan.range(0.85, 1.15);
+    // headstones scattered over the grass (cosmetic: nothing collides with them)
+    const graves = [];
+    for (let i = 0; i < 110; i++) {
+      const kind = art.chance(0.12) ? 'tomb' : art.pick(['round', 'round', 'cross', 'obelisk']);
+      graves.push({ kind, s: 60 + i * 95 + art.range(0, 50), x: art.range(MINX + 10, MAXX - 10), art: art.int(0, 1) });
     }
 
     // decoration along the edges (cosmetic)
@@ -1001,17 +976,6 @@ export default {
             return;
           }
         }
-        for (const row of rows) {
-          const y = PY - (row.s - dist);
-          if (Math.abs(y - PY) > 30) continue;
-          for (const st of row.stones) {
-            const hw = STONES[st.kind].hit / 2;
-            if (circleRect(x, PY, RP - 2, st.x - hw, y + st.dy - 5, hw * 2, 9)) {
-              die(st.kind === 'tomb' ? 'Ran into a tomb.' : 'Tripped over a gravestone.', null);
-              return;
-            }
-          }
-        }
 
         if (Math.random() < dt * 1.5) leaves.burst(Math.random() * W, -10, { count: 1, speed: 30, life: 6, size: 3, colors: LEAVES, angle: Math.PI / 2, spread: 1 });
         fx.update(dt, 0);
@@ -1033,6 +997,14 @@ export default {
         const off = dist % H;
         drawSprite(g, ground, W / 2, H / 2 + off);
         drawSprite(g, ground, W / 2, H / 2 + off - H);
+
+        // faded headstones, part of the ground: everything else is drawn over them
+        for (const st of graves) {
+          const y = PY - (st.s - dist);
+          if (y < -60 || y > H + 60) continue;
+          const sp = stoneArt[st.kind][st.art];
+          drawSprite(g, sp, st.x, y, { size: sp.w * 0.8, alpha: 0.38 });
+        }
 
         // moonlight wash and the kid's warm candy-pail glow on the grass
         g.globalCompositeOperation = 'lighter';
@@ -1076,11 +1048,6 @@ export default {
 
         // ---- everything on the ground and in the air, back to front ----
         const draw = [];
-        for (const row of rows) {
-          const y = PY - (row.s - dist);
-          if (y < -60 || y > H + 60) continue;
-          for (const st of row.stones) draw.push({ y: y + st.dy, f: () => drawSprite(g, stoneArt[st.kind][st.art], st.x, y + st.dy - (STONES[st.kind].h + 10) / 2 + 22) });
-        }
         for (const a of actors) draw.push({ y: a.y, f: () => drawActor(a) });
         draw.push({ y: PY, f: drawKid });
         draw.sort((a, b) => a.y - b.y);
