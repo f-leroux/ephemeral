@@ -3,9 +3,10 @@
 // little yellow sou'wester) has to stay dry: climb the growing pile one crate at a time (a cat can
 // hop up one crate, never two), keep out from under every crate coming down, and stay above the
 // rising water. Every drop is announced: the crate hangs from the crane over its column and a
-// marker shows the exact slot it will land in. The whole pile is planned up front from the rng
-// (crates mostly fill the lowest columns), so it's the same quay for everyone, and the water
-// follows the pile's average height a few seconds late, so the low spots flood.
+// marker shows the exact slot it will land in, with red hazard stripes down its whole path that
+// flash hard (and a "!" over the cat) whenever the cat stands in it. The whole pile is planned up
+// front from the rng (crates mostly fill the lowest columns), so it's the same quay for everyone,
+// and the water follows the pile's average height a few seconds late, so the low spots flood.
 
 import {
   createParticles,
@@ -726,6 +727,25 @@ export default {
     const lampGlow = glowSprite('rgba(255,200,120,1)', 60);
     const redGlow = glowSprite('rgba(255,80,50,1)', 30);
     const vignette = vignetteSprite(W, H, 0.6, '8,10,24');
+    // the danger column under a hanging crate: red hazard stripes from the crane down to its slot
+    const hazard = makeSprite(CW - 6, H + 16, (g) => {
+      g.translate(-(CW - 6) / 2, -(H + 16) / 2);
+      g.fillStyle = 'rgba(255,60,40,0.22)';
+      g.fillRect(0, 0, CW - 6, H + 16);
+      g.fillStyle = 'rgba(255,70,40,0.6)';
+      for (let y = -CW; y < H + 16 + CW; y += 16) {
+        g.beginPath();
+        g.moveTo(0, y);
+        g.lineTo(CW - 6, y - (CW - 6));
+        g.lineTo(CW - 6, y - (CW - 6) + 7);
+        g.lineTo(0, y + 7);
+        g.closePath();
+        g.fill();
+      }
+      g.fillStyle = 'rgba(255,110,70,0.95)';
+      g.fillRect(0, 0, 2, H + 16);
+      g.fillRect(CW - 8, 0, 2, H + 16);
+    }, 1);
 
     // ---- the whole unloading, planned up front ----
     const hp = new Array(N).fill(0);
@@ -1061,12 +1081,31 @@ export default {
           if (d.at - FALL - d.warn > time) break;
           if (!d.done) pending.push(d);
         }
+        // is the cat standing in the path of one of them?
+        const under = (d) => Math.abs(d.col * CW + CW / 2 - kitty.x) < CW / 2 - 2 + HW && crateY(d, time) > kitty.f;
+        const threatened = !game.dead && pending.some(under);
         for (const d of pending) {
           const x0 = d.col * CW;
           const top = sy((d.level + 1) * CW);
           const k = clamp((time - (d.at - FALL - d.warn)) / (d.warn + FALL), 0, 1);
-          g.fillStyle = `rgba(255,170,60,${0.04 + 0.08 * k})`;
-          g.fillRect(x0 + 6, BEAM, CW - 12, Math.max(0, top + CW - BEAM));
+          // the whole drop path flashes red, faster as the release gets closer, hardest over the cat
+          const colH = Math.min(H, Math.max(0, top + CW - BEAM));
+          if (colH > 0) {
+            const pulse = 0.5 + 0.5 * Math.sin(clock * (7 + 12 * k));
+            let a = (0.25 + 0.45 * k) * (0.7 + 0.3 * pulse);
+            if (!game.dead && under(d)) a = 0.7 + 0.3 * pulse;
+            g.globalAlpha = a;
+            g.drawImage(hazard.canvas, 0, (clock * 24) % 16, CW - 6, colH, x0 + 3, BEAM, CW - 6, colH);
+            g.globalAlpha = 1;
+          }
+          // its shadow on the slot grows as it comes down
+          if (top + CW > BEAM + 8 && top + CW < H + 10) {
+            const near = clamp(1 - (crateY(d, time) - d.level * CW) / (DROP + CW), 0, 1);
+            g.fillStyle = `rgba(10,6,16,${0.25 + 0.4 * near})`;
+            g.beginPath();
+            g.ellipse(x0 + CW / 2, top + CW - 2, 8 + 12 * Math.max(k, near), 3 + 2 * near, 0, 0, Math.PI * 2);
+            g.fill();
+          }
           if (top + CW > BEAM + 8) {
             g.fillStyle = `rgba(255,${Math.round(150 - 90 * k)},50,${0.18 + 0.2 * k})`;
             g.fillRect(x0 + 3, top + 3 + (CW - 6) * (1 - k), CW - 6, (CW - 6) * k);
@@ -1111,6 +1150,23 @@ export default {
 
         // ---- the cat ----
         if (death !== 'crate') drawCat();
+        if (threatened) {
+          // a crate is coming down on the cat: a red glow and a big "!" over its head
+          const fy = sy(kitty.vf);
+          const blink = 0.6 + 0.4 * Math.sin(clock * 18);
+          g.globalCompositeOperation = 'lighter';
+          drawSprite(g, redGlow, kitty.x, fy - 16, { size: 80, alpha: 0.6 * blink });
+          g.globalCompositeOperation = 'source-over';
+          g.fillStyle = `rgba(200,20,20,${0.85 * blink + 0.15})`;
+          g.beginPath();
+          g.arc(kitty.x, fy - 52, 10, 0, Math.PI * 2);
+          g.fill();
+          g.fillStyle = '#fff';
+          g.font = '900 15px system-ui, sans-serif';
+          g.textAlign = 'center';
+          g.textBaseline = 'middle';
+          g.fillText('!', kitty.x, fy - 51);
+        }
 
         function drawCat() {
           const k = kitty;
