@@ -3,7 +3,8 @@
 // colour: only a drop of that colour can slip through. Rolling through a puddle of paint turns
 // the drop that colour, so the game is reading the next stencil, finding a puddle of one of its
 // colours you can reach, and lining up with that window, while steering round the puddles that
-// would turn you the wrong colour at the last moment. Then more colours, narrower windows, a
+// would turn you the wrong colour at the last moment. It opens gently (a slower canvas, a stencil
+// you can already pass, then a lone puddle and its window), then more colours, narrower windows, a
 // faster canvas, stray puddles right in front of the stencils and, after half a minute, stencils
 // that slide from side to side. Every stencil is planned around a hidden route (a puddle, then a
 // window, each in easy reach of the last) that no other puddle sits on, so there's always a way.
@@ -41,7 +42,8 @@ const COLS = [
   { name: 'purple', hex: '#9a4fe0', light: '#d9b8ff', dark: '#552088', ink: '#fbf2ff', glyph: 'star' },
 ];
 
-const speedAt = (t) => lerp(150, 255, progress(t, 60, 1.2));
+// the canvas eases in over the first 12s so there's time to learn how windows work
+const speedAt = (t) => lerp(150, 255, progress(t, 60, 1.2)) * lerp(0.72, 1, easeOutCubic(clamp(t / 12, 0, 1)));
 const coloursAt = (t) => (t < 16 ? 3 : t < 36 ? 4 : 5); // green joins at 16s, purple at 36s
 
 function rgba(hex, a) {
@@ -548,14 +550,15 @@ export default {
     let px = W / 2;
     let col = START;
     for (let k = 0; ; k++) {
-      const gap = k === 0 ? 2.2 : lerp(2.1, 1.12, progress(prevA, 60, 1.15));
+      // the first few stencils come slowly: one you can already pass, then one puddle and its window
+      const gap = k < 4 ? [2.8, 3.1, 2.8, 2.4][k] : lerp(2.1, 1.12, progress(prevA, 60, 1.15));
       const gA = prevA + gap;
       if (gA > 64) break;
       const p = progress(gA, 60, 1.15);
       const n = coloursAt(gA);
-      const recolour = k === 0 || plan.chance(lerp(0.72, 0.92, p));
+      const recolour = k === 1 || k === 2 || (k > 2 && plan.chance(lerp(0.72, 0.92, p)));
       const target = recolour ? plan.pick([...Array(n).keys()].filter((c) => c !== col)) : col;
-      const hw = lerp(37, 24, p);
+      const hw = k < 3 ? 42 : lerp(37, 24, p);
       const late = clamp((gA - 27) / 28, 0, 1);
       const amp = gA > 27 && plan.chance(lerp(0.5, 0.85, late)) ? lerp(18, 48, late) : 0;
       const om = plan.range(1.2, 1.9);
@@ -623,7 +626,7 @@ export default {
       };
       const band = PUD_R + GATE_H / 2 + 16;
       const dpool = [...Array(n).keys()].filter((c) => c !== target);
-      const nd = (recolour ? 1 : 2) + (plan.chance(lerp(0.3, 0.85, p)) ? 1 : 0) + (plan.chance(lerp(-0.2, 0.5, p)) ? 1 : 0);
+      const nd = k < 2 ? 0 : k === 2 ? 1 : (recolour ? 1 : 2) + (plan.chance(lerp(0.3, 0.85, p)) ? 1 : 0) + (plan.chance(lerp(-0.2, 0.5, p)) ? 1 : 0);
       for (let i = 0; i < nd; i++) {
         const trap = gA > 18 && i === nd - 1 && plan.chance(lerp(0.2, 0.6, p)) && rowA + 0.28 < gA - 0.3;
         const c = plan.pick(dpool);
