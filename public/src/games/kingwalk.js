@@ -735,15 +735,23 @@ export default {
             const idx = (r - rBot) * FILES + f;
             const x = X0 + f * S;
             if (atk[idx]) {
-              g.fillStyle = `rgba(215,30,60,${0.3 + 0.14 * near})`;
+              // a strong, saturated red that reads clearly on both the cream and the teal squares
+              g.fillStyle = `rgba(200,16,42,${0.6 + 0.15 * near})`;
               g.fillRect(x, y, S, S);
-              g.strokeStyle = `rgba(255,95,115,${0.55 + 0.3 * near})`;
-              g.lineWidth = 1.6;
-              g.strokeRect(x + 2.5, y + 2.5, S - 5, S - 5);
-              g.fillStyle = `rgba(255,120,135,${0.5 + 0.3 * near})`;
+              g.strokeStyle = `rgba(255,150,160,${0.75 + 0.25 * near})`;
+              g.lineWidth = 2.4;
+              g.strokeRect(x + 3, y + 3, S - 6, S - 6);
+              // a pale cross in the middle, so it isn't down to colour alone
+              const c = S * 0.13;
+              g.strokeStyle = `rgba(255,215,220,${0.7 + 0.3 * near})`;
+              g.lineWidth = 2.2;
+              g.lineCap = 'round';
               g.beginPath();
-              g.arc(x + S / 2, y + S / 2, 2.6, 0, TAU);
-              g.fill();
+              g.moveTo(x + S / 2 - c, y + S / 2 - c);
+              g.lineTo(x + S / 2 + c, y + S / 2 + c);
+              g.moveTo(x + S / 2 + c, y + S / 2 - c);
+              g.lineTo(x + S / 2 - c, y + S / 2 + c);
+              g.stroke();
             }
             if (warn[idx] === 1) {
               g.strokeStyle = `rgba(255,70,95,${0.5 + 0.45 * pulse})`;
@@ -751,7 +759,7 @@ export default {
               g.setLineDash([5, 4]);
               g.strokeRect(x + 4, y + 4, S - 8, S - 8);
               g.setLineDash([]);
-              g.fillStyle = `rgba(215,30,60,${0.08 + 0.1 * pulse})`;
+              g.fillStyle = `rgba(200,16,42,${0.14 + 0.14 * pulse})`;
               g.fillRect(x, y, S, S);
             }
           }
