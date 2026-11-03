@@ -1,10 +1,10 @@
 // Rooftop Rockets — Bonfire Night over an old terrace of chimney stacks. A chimney sweep hops from
 // stack to stack while someone keeps lighting rockets in the chimney pots. The only move is a
 // leap: hold ← or → to wind it up (a dotted arc and a landing ring show where it will come down,
-// sweeping out and back while you hold), let go to jump. Come down short or long and you slide off
-// the slates; stand on a chimney when its rocket goes up and you go up with it. Every lit chimney
-// shows its rocket, a sparking fuse, a red glow and a countdown ring, and the sweep gets a "!"
-// whenever the chimney under them is lit. Over the minute the leap winds up faster, fuses get
+// sweeping out and back while you hold and lingering over each chimney top), let go to jump. Come
+// down short or long and you slide off the slates; stand on a chimney when its rocket goes up and
+// you go up with it. Every lit chimney shows its rocket, a sparking fuse, a red glow and a
+// countdown ring, and the sweep gets a "!" whenever the chimney under them is lit. Over the minute the leap winds up faster, fuses get
 // shorter, two chimneys get lit at once, and from 28s fuse cords strung along the ridge burn from
 // stack to stack towards you. The terrace is planned up front from the rng, and every fuse is
 // only lit if there's still a free chimney the sweep can reach.
@@ -17,7 +17,8 @@ const ROOF = 600; // the terrace's ridge on screen
 const DMAX = 175; // the longest leap
 const MINJ = 10; // shorter than this and letting go does nothing
 const REACH = 150; // neighbouring chimneys are never further apart than this (centre to centre)
-const TOL = 3; // landing leniency past a chimney's edge
+const TOL = 5; // landing leniency past a chimney's edge
+const STICK = 0.42; // the wind-up slows to this while the landing ring is over another chimney's top
 const BLAST = 0.42; // how long a rocket's flame jet stands on its chimney
 const COOL = 0.7; // a chimney can't be relit straight after its rocket has gone
 const SPAN = 7200; // the terrace runs this far either way
@@ -1047,7 +1048,9 @@ export default {
             P.phase = 1;
             P.face = dir;
           }
-          P.charge += P.phase * rate * dt;
+          // the ring lingers over chimney tops so it's easy to let go on one, then speeds over gaps
+          const over = chimneyAt(P.x + P.cdir * P.charge);
+          P.charge += P.phase * rate * (over >= 0 && over !== P.on ? STICK : 1) * dt;
           if (P.charge >= DMAX) {
             P.charge = 2 * DMAX - P.charge;
             P.phase = -1;
