@@ -1,6 +1,6 @@
 // Counting Sheep — a dream in lavender. Two sheep run side by side up a floating meadow in the clouds,
 // one per thumb: ← makes the left sheep leap, → the right one. Every fence has to be cleared, and a
-// sheep must never leap while a sleepy star dangles over its lane. Each fence cleared is a sheep counted.
+// sheep must never leap while a crackling storm cloud hangs over its lane. Each fence cleared is a sheep counted.
 
 import {
   createParticles,
@@ -35,7 +35,7 @@ const S2 = 1 - S1;
 const R1 = (1 - Math.sqrt(1 - STAR_CLEAR / HJ)) / 2;
 const R2 = 1 - R1;
 
-const V0 = 215;
+const V0 = 150; // a gentle start, so there's time to see what's going on
 const V1 = 330;
 const speedAt = (t) => lerp(V0, V1, progress(clamp(t, 0, 60), 60, 1.2));
 
@@ -488,6 +488,70 @@ function paintStar() {
   });
 }
 
+// A low, grumpy thundercloud with a lightning bolt hanging under it: plainly something to stay away from.
+function paintStorm() {
+  return makeSprite(56, 52, (g) => {
+    // the bolt dangling below, pointing at the sheep's head
+    g.lineJoin = 'round';
+    g.beginPath();
+    g.moveTo(-3, 2);
+    g.lineTo(5, 2);
+    g.lineTo(1, 13);
+    g.lineTo(7, 13);
+    g.lineTo(-4, 25);
+    g.lineTo(-1, 16);
+    g.lineTo(-7, 16);
+    g.closePath();
+    g.fillStyle = '#fff04a';
+    g.fill();
+    g.strokeStyle = '#ff7a1a';
+    g.lineWidth = 1.4;
+    g.stroke();
+    // the cloud
+    const puffs = [[-15, -6, 10], [-4, -11, 12], [9, -9, 11], [17, -3, 8], [-19, 0, 7], [0, -2, 12], [12, 1, 8], [-11, 2, 8]];
+    g.fillStyle = 'rgba(10,4,20,0.55)';
+    for (const [x, y, r] of puffs) {
+      g.beginPath();
+      g.arc(x + 1.5, y + 3, r, 0, Math.PI * 2);
+      g.fill();
+    }
+    const body = g.createLinearGradient(0, -24, 0, 10);
+    body.addColorStop(0, '#6b6584');
+    body.addColorStop(0.55, '#3d3654');
+    body.addColorStop(1, '#221c33');
+    g.fillStyle = body;
+    for (const [x, y, r] of puffs) {
+      g.beginPath();
+      g.arc(x, y, r, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.fillStyle = 'rgba(190,180,220,0.25)';
+    for (const [x, y, r] of puffs.slice(0, 4)) {
+      g.beginPath();
+      g.arc(x - r * 0.25, y - r * 0.35, r * 0.45, 0, Math.PI * 2);
+      g.fill();
+    }
+    // angry face
+    g.strokeStyle = '#120a1e';
+    g.lineCap = 'round';
+    g.lineWidth = 2;
+    for (const k of [-1, 1]) {
+      g.beginPath();
+      g.moveTo(k * 10, -9);
+      g.lineTo(k * 3, -6);
+      g.stroke();
+      g.fillStyle = '#ff4b5c';
+      g.beginPath();
+      g.arc(k * 6, -3.5, 2.2, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.lineWidth = 1.6;
+    g.beginPath();
+    g.arc(0, 4, 3.5, 1.15 * Math.PI, 1.85 * Math.PI);
+    g.stroke();
+  });
+}
+
 function paintShadow(w, h, a) {
   return makeSprite(w, h, (g) => {
     const grad = g.createRadialGradient(0, 0, 1, 0, 0, w / 2);
@@ -517,7 +581,7 @@ export default {
   id: 'sheepcount',
   title: 'Counting Sheep',
   emoji: '🐑',
-  tagline: 'Tap ← or → to make that sheep leap its fence. Never leap under a star.',
+  tagline: '← or → makes that sheep leap a fence. Never leap under a storm cloud.',
   colors: { bg: '#1d1645', fg: '#fff4d6', accent: '#ffd75e' },
 
   // 90s dream trance in A♭ major at 136 BPM over I–vi–IV–V (A♭ – Fm – D♭ – E♭): 34 bars = 60s.
@@ -633,7 +697,7 @@ export default {
 
     let taps = [];
     {
-      let t = 3.4;
+      let t = 4.2;
       const laneEnd = [0, 0];
       while (t < 63) {
         const p = progress(t, 60, 1.15);
@@ -644,11 +708,11 @@ export default {
         const T0 = q(t);
         const weights = [
           ['fence', 1],
-          ['double', t > 13 ? lerp(0.25, 0.6, p) : 0],
-          ['star', t > 6 ? 0.32 : 0],
-          ['fenceStar', t > 9 ? lerp(0.35, 0.7, p) : 0],
-          ['starFence', t > 11 ? lerp(0.35, 0.7, p) : 0],
-          ['pair', t > 16 ? lerp(0.25, 0.7, p) : 0],
+          ['double', t > 18 ? lerp(0.25, 0.6, p) : 0],
+          ['star', t > 9 ? 0.32 : 0],
+          ['fenceStar', t > 14 ? lerp(0.35, 0.7, p) : 0],
+          ['starFence', t > 16 ? lerp(0.35, 0.7, p) : 0],
+          ['pair', t > 20 ? lerp(0.25, 0.7, p) : 0],
         ];
         let sum = 0;
         for (const [, w] of weights) sum += w;
@@ -690,7 +754,7 @@ export default {
           taps = ok;
           for (const gr of ng) laneEnd[gr.lane] = Math.max(laneEnd[gr.lane], gr.fences[gr.fences.length - 1]);
           for (const st of ns) laneEnd[st.lane] = Math.max(laneEnd[st.lane], st.T);
-          t = end + lerp(1.05, 0.12, p) * plan.range(0.85, 1.15);
+          t = end + lerp(t < 12 ? 1.7 : 1.05, 0.12, p) * plan.range(0.85, 1.15);
         } else {
           t += E;
         }
@@ -720,6 +784,8 @@ export default {
     const starArt = paintStar();
     const sheepShadow = paintShadow(40, 14, 0.5);
     const starShadow = paintShadow(30, 10, 0.45);
+    const stormArt = paintStorm();
+    const stormGlow = glowSprite('rgba(255,60,90,1)', 40);
     const starGlow = glowSprite('rgba(255,214,110,1)', 40);
     const pinkGlow = glowSprite('rgba(255,150,210,1)', 40);
     const zArt = paintZ();
@@ -818,8 +884,8 @@ export default {
               deadLane = th.lane;
               deathKind = 'star';
               th.hit = 1;
-              this.deathReason = `The ${th.lane ? 'right' : 'left'} sheep leapt into a hanging star — ${count} sheep counted.`;
-              fx.burst(s.x, FOOT - STAR_HANG, { count: 30, speed: 160, life: 1, size: 3, round: true, drag: 1.5, colors: ['#fff6c2', '#ffd75e', '#ffffff', '#ffb8e0'] });
+              this.deathReason = `The ${th.lane ? 'right' : 'left'} sheep leapt into a storm cloud — ${count} sheep counted.`;
+              fx.burst(s.x, FOOT - STAR_HANG, { count: 30, speed: 160, life: 1, size: 3, round: true, drag: 1.5, colors: ['#fff04a', '#ffffff', '#ff7a1a', '#8a82a8'] });
               break;
             }
             if (y > FOOT + STAR_BAND) th.passed = true;
@@ -949,9 +1015,9 @@ export default {
             g.lineTo(sx, sy - 16);
             g.stroke();
             g.globalCompositeOperation = 'lighter';
-            drawSprite(g, starGlow, sx, sy, { size: 76, alpha: 0.4 + 0.12 * Math.sin(clock * 3 + th.ph) });
+            drawSprite(g, stormGlow, sx, sy - 4, { size: 84, alpha: 0.32 + 0.14 * Math.sin(clock * 5 + th.ph) });
             g.globalCompositeOperation = 'source-over';
-            drawSprite(g, starArt, sx, sy, { size: 36, rot: swing });
+            drawSprite(g, stormArt, sx, sy - 6, { size: 50, rot: swing * 0.5 });
           }
         };
 
