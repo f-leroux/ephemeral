@@ -748,7 +748,8 @@ export default {
         const p = progress(t, 60, 1.1);
         const pr = wps[wps.length - 1];
         if (t - 0.3 - pr.t > 1.5) addWp(pr.t + (t - 0.3 - pr.t) * plan.range(0.35, 0.65), plan.range(LANE_L, LANE_R));
-        const gw = () => lerp(74, 44, p) * plan.range(0.92, 1.08);
+        // the first few gaps are extra wide, so the opening fences are a gentle introduction
+        const gw = () => (lerp(74, 44, p) + lerp(34, 0, clamp((t - 4) / 14, 0, 1))) * plan.range(0.92, 1.08);
         const gate = (T, dx) => {
           const last = wps[wps.length - 1];
           const gx = addWp(T - 0.3, dx != null ? last.x + dx : plan.range(LANE_L, LANE_R));
@@ -812,7 +813,9 @@ export default {
       let a = 0;
       for (const ev of events) {
         if (ev.kind === 'gate') {
-          const rT = ev.w / 2 / FIT - 3;
+          // leave real room either side of the ball in the gap (lots early, less later)
+          const clr = lerp(14, 6, ev.p);
+          const rT = (ev.w / 2 - clr) / FIT;
           if (integ(a, ev.T, r) > rT) {
             const e = ev.T - plan.range(0.22, lerp(0.3, 0.75, ev.p));
             const dmax = e - a - 0.15;
@@ -828,7 +831,7 @@ export default {
                 }
               }
             }
-            if (!ok) ev.w = 2 * FIT * (integ(a, ev.T, r) + 3);
+            if (!ok) ev.w = 2 * (FIT * integ(a, ev.T, r) + clr);
           }
           r = integ(a, ev.T, r);
           a = ev.T;
