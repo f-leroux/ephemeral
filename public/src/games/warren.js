@@ -5,9 +5,9 @@
 // cross and tangle under the hedge. Each tunnel has its own colour (a ring round both holes and a
 // dotted trail of turned earth between them), and some exits have a fox sitting by them, waiting.
 // So before every hedge you read which entrance leads to a safe exit and get to it in time, while
-// dodging thistles and hay bales on the surface; from 11s foxes also dash across the field. Over
+// dodging brambles on the surface; from 11s foxes also dash across the field. Over
 // the minute the field speeds up, hedges come closer together, there are more tunnels with more
-// foxes at their ends, and the gaps fill with more thistles. Everything is planned up front from
+// foxes at their ends, and the gaps fill with more brambles. Everything is planned up front from
 // the rng around a reference run (always one good tunnel within reach), and checked against a
 // reference rabbit with a slower hand, so there is always a way through.
 
@@ -594,133 +594,101 @@ function paintFoxRun(frame) {
   }, 3);
 }
 
-function paintThistle(rng) {
-  return makeSprite(36, 36, (g) => {
-    // spiky rosette of leaves
-    for (let layer = 0; layer < 2; layer++) {
-      const n = 7;
-      const rot = rng.range(0, TAU);
-      for (let i = 0; i < n; i++) {
-        const a = rot + (i / n) * TAU;
-        const len = (layer ? 11 : 16) * rng.range(0.85, 1.1);
-        g.save();
-        g.rotate(a);
-        g.fillStyle = layer ? '#6f9a52' : '#4b7638';
-        g.beginPath();
-        g.moveTo(0, -3);
-        for (let k = 1; k <= 4; k++) {
-          const x = (k / 4) * len;
-          g.lineTo(x - len / 8, -4.5 + k * 0.4);
-          g.lineTo(x, -2.5 + k * 0.4);
-        }
-        g.lineTo(len + 2, 0);
-        for (let k = 4; k >= 1; k--) {
-          const x = (k / 4) * len;
-          g.lineTo(x, 2.5 - k * 0.4);
-          g.lineTo(x - len / 8, 4.5 - k * 0.4);
-        }
-        g.lineTo(0, 3);
-        g.closePath();
-        g.fill();
-        g.strokeStyle = 'rgba(230,240,220,0.6)';
-        g.lineWidth = 0.6;
-        g.beginPath();
-        g.moveTo(1, 0);
-        g.lineTo(len, 0);
-        g.stroke();
-        // spines
-        g.strokeStyle = 'rgba(255,255,235,0.8)';
-        for (let k = 1; k <= 4; k++) {
-          const x = (k / 4) * len;
-          g.beginPath();
-          g.moveTo(x, -2.5);
-          g.lineTo(x + 1, -5.5);
-          g.moveTo(x, 2.5);
-          g.lineTo(x + 1, 5.5);
-          g.stroke();
-        }
-        g.restore();
-      }
-    }
-    // purple flower heads
-    const heads = [[0, 0, 5.5], [rng.range(-6, -3), rng.range(-6, -3), 3.8], [rng.range(3, 6), rng.range(2, 6), 3.6]];
-    for (const [x, y, r] of heads) {
-      const gg = g.createRadialGradient(x - r * 0.3, y - r * 0.3, 0, x, y, r);
-      gg.addColorStop(0, '#7aa05a');
-      gg.addColorStop(1, '#3f6a2c');
-      g.fillStyle = gg;
-      g.beginPath();
-      g.arc(x, y, r, 0, TAU);
-      g.fill();
-      for (let k = 0; k < 18; k++) {
-        const a = (k / 18) * TAU;
-        g.strokeStyle = k % 2 ? '#c548d6' : '#e47ae8';
-        g.lineWidth = 1;
-        g.beginPath();
-        g.moveTo(x + Math.cos(a) * r * 0.2, y + Math.sin(a) * r * 0.2);
-        g.lineTo(x + Math.cos(a) * r * 0.85, y + Math.sin(a) * r * 0.85);
-        g.stroke();
-      }
-      g.fillStyle = '#f2a8f2';
-      g.beginPath();
-      g.arc(x - r * 0.2, y - r * 0.2, r * 0.3, 0, TAU);
-      g.fill();
-    }
-  }, 3);
-}
-
-function paintBale(rng) {
-  return makeSprite(44, 44, (g) => {
-    const r = 19;
-    const gr = g.createRadialGradient(-6, -6, 2, 0, 0, r);
-    gr.addColorStop(0, '#fbe39a');
-    gr.addColorStop(0.6, '#e6bf62');
-    gr.addColorStop(1, '#9c6a22');
-    g.fillStyle = gr;
+// A bramble clump: the only thing to avoid in the open field. A near-black tangle of thorny stems
+// with long pale thorns and a few red berries, drawn dark and outlined so it stands out sharply
+// against the straw gold. Its dark core is the size of what you can bump into.
+function paintBramble(rng) {
+  return makeSprite(48, 48, (g) => {
+    const R = 14;
+    // a faint warning halo of trampled dark earth
+    const halo = g.createRadialGradient(0, 0, R * 0.6, 0, 0, R + 9);
+    halo.addColorStop(0, 'rgba(40,10,10,0.45)');
+    halo.addColorStop(1, 'rgba(40,10,10,0)');
+    g.fillStyle = halo;
     g.beginPath();
-    g.arc(0, 0, r, 0, TAU);
+    g.arc(0, 0, R + 9, 0, TAU);
     g.fill();
-    g.strokeStyle = 'rgba(90,55,15,0.75)';
-    g.lineWidth = 1.4;
-    g.stroke();
-    // the rolled spiral
-    g.strokeStyle = 'rgba(140,95,30,0.55)';
-    g.lineWidth = 1;
-    g.beginPath();
-    for (let a = 0; a < TAU * 4.2; a += 0.15) {
-      const rr = 1 + (a / (TAU * 4.2)) * (r - 2);
-      const x = Math.cos(a) * rr;
-      const y = Math.sin(a) * rr;
-      if (a) g.lineTo(x, y);
-      else g.moveTo(x, y);
+    // long thorns radiating out
+    const n = 16;
+    const rot = rng.range(0, TAU);
+    for (let i = 0; i < n; i++) {
+      const a = rot + (i / n) * TAU + rng.range(-0.08, 0.08);
+      const len = R + (i % 2 ? 4.5 : 7) * rng.range(0.85, 1.1);
+      g.save();
+      g.rotate(a);
+      g.fillStyle = '#1c0d10';
+      g.beginPath();
+      g.moveTo(R - 4, -2.6);
+      g.lineTo(len, 0);
+      g.lineTo(R - 4, 2.6);
+      g.closePath();
+      g.fill();
+      g.fillStyle = '#f4ead2';
+      g.beginPath();
+      g.moveTo(len - 3.6, -0.9);
+      g.lineTo(len + 0.6, 0);
+      g.lineTo(len - 3.6, 0.9);
+      g.closePath();
+      g.fill();
+      g.restore();
     }
+    // the dark woody core
+    const core = g.createRadialGradient(-4, -4, 1, 0, 0, R);
+    core.addColorStop(0, '#4a2230');
+    core.addColorStop(0.7, '#2a1018');
+    core.addColorStop(1, '#14070b');
+    g.fillStyle = core;
+    g.beginPath();
+    g.arc(0, 0, R, 0, TAU);
+    g.fill();
+    g.strokeStyle = '#0c0406';
+    g.lineWidth = 1.6;
     g.stroke();
-    // straw texture
-    for (let i = 0; i < 90; i++) {
+    // tangled stems with little thorns
+    for (let k = 0; k < 7; k++) {
+      const a0 = rng.range(0, TAU);
+      const a1 = a0 + rng.range(1.6, 3.2);
+      const r0 = rng.range(0.25, 0.85) * R;
+      g.strokeStyle = k % 2 ? '#6a2f40' : '#57263a';
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.moveTo(Math.cos(a0) * r0, Math.sin(a0) * r0);
+      g.quadraticCurveTo(rng.range(-4, 4), rng.range(-4, 4), Math.cos(a1) * R * 0.85, Math.sin(a1) * R * 0.85);
+      g.stroke();
+    }
+    g.strokeStyle = 'rgba(244,234,210,0.85)';
+    g.lineWidth = 0.8;
+    for (let k = 0; k < 14; k++) {
       const a = rng.range(0, TAU);
-      const rr = rng.range(2, r - 1);
+      const rr = rng.range(0.2, 0.9) * R;
       const x = Math.cos(a) * rr;
       const y = Math.sin(a) * rr;
-      g.strokeStyle = rng.pick(['rgba(255,245,200,0.7)', 'rgba(170,120,50,0.5)', 'rgba(230,200,120,0.7)']);
-      g.lineWidth = 0.7;
+      const b = rng.range(0, TAU);
       g.beginPath();
       g.moveTo(x, y);
-      g.lineTo(x + Math.cos(a + Math.PI / 2) * 3, y + Math.sin(a + Math.PI / 2) * 3);
+      g.lineTo(x + Math.cos(b) * 2.4, y + Math.sin(b) * 2.4);
       g.stroke();
     }
-    // net wrap bands
-    g.strokeStyle = 'rgba(80,140,200,0.55)';
-    g.lineWidth = 1.2;
-    for (const k of [-0.45, 0.45]) {
+    // red berries
+    for (let k = 0; k < 4; k++) {
+      const a = rng.range(0, TAU);
+      const rr = rng.range(0.2, 0.7) * R;
+      const x = Math.cos(a) * rr;
+      const y = Math.sin(a) * rr;
+      g.fillStyle = '#e0202c';
       g.beginPath();
-      g.moveTo(-r * Math.sqrt(1 - k * k), k * r);
-      g.lineTo(r * Math.sqrt(1 - k * k), k * r);
-      g.stroke();
+      g.arc(x, y, 2.2, 0, TAU);
+      g.fill();
+      g.fillStyle = 'rgba(255,220,220,0.85)';
+      g.beginPath();
+      g.arc(x - 0.7, y - 0.7, 0.7, 0, TAU);
+      g.fill();
     }
-    g.strokeStyle = 'rgba(255,250,220,0.6)';
-    g.lineWidth = 1.5;
+    // a pale rim catching the morning light
+    g.strokeStyle = 'rgba(255,230,210,0.35)';
+    g.lineWidth = 1.2;
     g.beginPath();
-    g.arc(0, 0, r - 1, Math.PI * 1.05, Math.PI * 1.6);
+    g.arc(0, 0, R - 1.2, Math.PI * 1.05, Math.PI * 1.6);
     g.stroke();
   }, 3);
 }
@@ -902,7 +870,7 @@ export default {
       return lerp(a.x, b.x, smooth(u));
     };
 
-    // ---- thistles, hay bales and running foxes in the open field ----
+    // ---- brambles and running foxes in the open field ----
     let obs = [];
     let foxes = [];
     {
@@ -934,8 +902,8 @@ export default {
           const n = 1 + (plan.chance(lerp(0.2, 0.7, p)) ? 1 : 0) + (plan.chance(lerp(0, 0.3, p)) ? 1 : 0);
           for (let k = 0; k < n; k++) {
             for (let tries = 0; tries < 10; tries++) {
-              const kind = plan.chance(0.68) ? 'thistle' : 'bale';
-              const r = kind === 'thistle' ? plan.range(10, 13) : plan.range(15, 18);
+              const kind = 'bramble';
+              const r = plan.range(12, 14.5);
               const x = plan.range(XMIN, XMAX);
               const s = cumAt(tc) + plan.range(-16, 16);
               if (!clearRoute(s, x, r) || !clearStuff(s, x, r)) continue;
@@ -1053,7 +1021,7 @@ export default {
       for (let iter = 0; iter < 200; iter++) {
         const hit = sim();
         if (!hit) break;
-        if (hit.kind === 'thistle' || hit.kind === 'bale') obs = obs.filter((o) => o !== hit.o);
+        if (hit.kind === 'bramble') obs = obs.filter((o) => o !== hit.o);
         else if (hit.kind === 'fox') foxes = foxes.filter((f) => f !== hit.f);
         else if (hit.kind === 'den') hit.tn.good = true;
         else if (hit.kind === 'hedge') {
@@ -1084,8 +1052,7 @@ export default {
     const rabbit = [paintRabbit(0), paintRabbit(1)];
     const foxSit = paintFoxSit();
     const foxRun = [paintFoxRun(0), paintFoxRun(1)];
-    const thistles = [paintThistle(art), paintThistle(art), paintThistle(art)];
-    const bales = [paintBale(art), paintBale(art), paintBale(art)];
+    const brambles = [paintBramble(art), paintBramble(art), paintBramble(art)];
     const shadow = paintShadow(60, 30);
     const light = paintLight(W, H);
     const vignette = vignetteSprite(W, H, 0.42, '70,35,10');
@@ -1140,8 +1107,7 @@ export default {
             if (ev.kind === 'den') this.die('Popped up right under a fox’s nose.');
             else if (ev.kind === 'hedge') this.die('Ran headfirst into the hedgerow.');
             else if (ev.kind === 'fox') this.die('Caught by a running fox.');
-            else if (ev.kind === 'thistle') this.die('Hopped straight into a thistle.');
-            else this.die('Bumped into a hay bale.');
+            else this.die('Got snagged in a bramble.');
           }
         }
         this.cosmetics(dt, dir);
@@ -1194,8 +1160,7 @@ export default {
         fx.burst(st.px, PY, { count: 26, speed: 160, life: 0.9, size: 3, colors: FUR, drag: 2.2 });
         if (culprit.kind === 'den') fx.burst(st.px, PY - 6, { count: 30, speed: 150, life: 0.8, size: 3, colors: SOIL, drag: 2.5 });
         if (culprit.kind === 'hedge') fx.burst(st.px, PY - 14, { count: 20, speed: 120, life: 0.9, size: 3, colors: ['#3e7228', '#558a33', '#24451a', '#b3141c'], drag: 2 });
-        if (culprit.kind === 'thistle') fx.burst(st.px, PY - 6, { count: 16, speed: 120, life: 0.8, size: 2.5, colors: ['#e47ae8', '#c548d6', '#6f9a52'], drag: 2 });
-        if (culprit.kind === 'bale') fx.burst(st.px, PY - 8, { count: 24, speed: 140, life: 0.9, size: 3, colors: STRAW, drag: 2 });
+        if (culprit.kind === 'bramble') fx.burst(st.px, PY - 6, { count: 22, speed: 130, life: 0.85, size: 2.8, colors: ['#2a1018', '#57263a', '#e0202c', '#f4ead2'], drag: 2 });
       },
 
       afterlife(dt) {
@@ -1224,13 +1189,13 @@ export default {
         }
         const current = st.under || aimed;
 
-        // shadows of hay bales and thistles
+        // shadows of the brambles
         for (let i = st.lo; i < obs.length; i++) {
           const o = obs[i];
           const y = objY(o.s);
           if (y < -50) break;
           if (y > H + 50) continue;
-          drawSprite(g, shadow, o.x - o.r * 0.5, y + o.r * 0.55, { size: o.r * (o.kind === 'bale' ? 3.2 : 2.6) });
+          drawSprite(g, shadow, o.x - o.r * 0.5, y + o.r * 0.55, { size: o.r * 3 });
         }
 
         // tunnels: a ridge of turned earth and a dotted trail of the tunnel's colour
@@ -1339,14 +1304,13 @@ export default {
           }
         }
 
-        // thistles and hay bales
+        // brambles
         for (let i = st.lo; i < obs.length; i++) {
           const o = obs[i];
           const y = objY(o.s);
           if (y < -40) break;
           if (y > H + 40) continue;
-          if (o.kind === 'bale') drawSprite(g, bales[o.v], o.x, y, { size: o.r * 2.3, rot: o.rot });
-          else drawSprite(g, thistles[o.v], o.x, y, { size: o.r * 2.9, rot: o.rot });
+          drawSprite(g, brambles[o.v], o.x, y, { size: o.r * 3.4, rot: o.rot });
           if (culprit && culprit.o === o) drawSprite(g, redGlow, o.x, y, { size: o.r * 5, alpha: 0.5 + 0.3 * pulse });
         }
 
