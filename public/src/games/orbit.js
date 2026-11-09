@@ -525,10 +525,11 @@ export default {
     // ---- the plan: when each arc of junk and each rogue appears (drawn up front, input-free) ----
     const events = [];
     {
+      // gentle start (playtest: too busy early): small, sparse arcs, ramping up to the same finale
       let t = 0.6;
       while (t < 62) {
-        const p = progress(t, 60, 1.1);
-        const n = plan.int(1, Math.round(lerp(2.2, 6, p)));
+        const p = progress(t, 60, 1.5);
+        const n = plan.int(1, Math.round(lerp(1.6, 6, p)));
         const kinds = [];
         for (let k = 0; k < n; k++) kinds.push(plan.pick(['chunk', 'chunk', 'panel', 'stage']));
         events.push({
@@ -543,11 +544,11 @@ export default {
           life: plan.range(8, 12),
           tumble: plan.range(-2, 2),
         });
-        t += lerp(2.3, 1.0, p) * plan.range(0.8, 1.2);
+        t += lerp(3.3, 1.0, p) * plan.range(0.8, 1.2);
       }
-      t = 2.2;
+      t = 4;
       while (t < 62) {
-        const p = progress(t, 60, 1.2);
+        const p = progress(t, 60, 1.5);
         events.push({
           t,
           type: 'rogue',
@@ -559,7 +560,7 @@ export default {
           speed: plan.range(0.9, 1.15),
           travel: plan.range(1.45, 1.85) * Math.PI,
         });
-        t += lerp(3.4, 1.0, p) * plan.range(0.8, 1.2);
+        t += lerp(5, 1.0, p) * plan.range(0.8, 1.2);
       }
       events.sort((a, b) => a.t - b.t);
     }
