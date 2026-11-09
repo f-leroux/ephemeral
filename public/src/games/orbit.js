@@ -540,27 +540,28 @@ export default {
           r: plan.range(R_ATM + 8, R_MAX - 2),
           side: plan.chance(0.5) ? 1 : -1,
           off: plan.range(1.7, 2.9),
-          gap: plan.range(0.17, 0.33),
+          gap: plan.range(0.2, 0.36),
           life: plan.range(8, 12),
           tumble: plan.range(-2, 2),
         });
-        t += lerp(3.3, 1.0, p) * plan.range(0.8, 1.2);
+        t += lerp(3.4, 1.2, p) * plan.range(0.8, 1.2);
       }
-      t = 4;
+      // rogues (playtest: still too hard): fewer, fewer aimed at you, slower and with a longer flare-up
+      t = 5;
       while (t < 62) {
         const p = progress(t, 60, 1.5);
         events.push({
           t,
           type: 'rogue',
-          aim: plan.chance(lerp(0.45, 0.85, p)),
+          aim: plan.chance(lerp(0.3, 0.7, p)),
           aimOff: plan.range(-9, 9),
           r: plan.range(R_ATM + 6, R_MAX - 4),
           side: plan.range(-0.5, 0.5),
-          warn: lerp(1.15, 0.75, p),
-          speed: plan.range(0.9, 1.15),
+          warn: lerp(1.8, 1.1, p),
+          speed: plan.range(0.8, 1.0),
           travel: plan.range(1.45, 1.85) * Math.PI,
         });
-        t += lerp(5, 1.0, p) * plan.range(0.8, 1.2);
+        t += lerp(6, 1.4, p) * plan.range(0.8, 1.2);
       }
       events.sort((a, b) => a.t - b.t);
     }
@@ -711,7 +712,7 @@ export default {
         const p = progress(t, 60, 1.2);
         sat.dir = dir;
         sat.vr += (dir * RSPEED - sat.vr) * Math.min(1, 7 * dt);
-        const drag = lerp(3, 7, p) * (sat.r < R_ATM ? 1.6 : 1);
+        const drag = lerp(2.5, 6, p) * (sat.r < R_ATM ? 1.6 : 1);
         sat.r += (sat.vr - drag) * dt;
         if (sat.r < R_FLOOR) {
           sat.r = R_FLOOR;
@@ -751,7 +752,7 @@ export default {
             const [hx, hy] = pos(h.r, h.a);
             const dx = hx - sx;
             const dy = hy - sy;
-            const rr = PR + h.hr * 0.9;
+            const rr = PR + h.hr * 0.8;
             if (dx * dx + dy * dy < rr * rr) {
               this.dead = true;
               this.deathReason = h.type === 'rogue' ? 'Smashed head-on into a rogue meteoroid.' : h.kind === 'stage' ? 'Rammed by a spent rocket stage.' : h.kind === 'panel' ? 'Sliced by a drifting solar panel.' : 'Hit by space junk.';
