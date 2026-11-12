@@ -1,11 +1,10 @@
 // Octo Hockey — you guard the goal at your end of an air-hockey table, and a smug octopus at the
 // other end keeps shooting. It has eight arms and plenty of pucks: every tentacle sets a puck down
 // on the far side, pulls back and flicks it at your goal, straight or banked off the rails (once,
-// then twice later on), faster and faster, often with two or three in the air at once. Your mallet
-// only slides left and right along your goal line, and every puck has to touch it. From 12s the
-// octopus mixes in blobs of ink: those you must never touch (they splash harmlessly into your
-// goal), and they're aimed where you just were or where you're about to go. A dotted line shows
+// then twice later on), faster and faster, often with two in the air at once. Your mallet only
+// slides left and right along your goal line, and every puck has to touch it. A dotted line shows
 // the first leg of every shot as the tentacle winds up; reading the banks is the game.
+// (The ink blobs were dropped after playtesting: it's just pucks. The ink drawing code is unused.)
 // Every shot is planned up front from the rng on a fixed timeline, so the run is the same whatever
 // you do; blocked pucks fly back up and the octopus catches them.
 
@@ -473,7 +472,7 @@ export default {
   id: 'octohockey',
   title: 'Octo Hockey',
   emoji: '🐙',
-  tagline: 'Block every puck the octopus shoots. Never touch its ink.',
+  tagline: 'Block every puck the octopus shoots, straight or off the rails.',
   colors: { bg: '#170e33', fg: '#ffffff', accent: '#2ed573' },
   music,
 
@@ -489,8 +488,8 @@ export default {
       while (ta < 62) {
         pucks.push({ ta, tx });
         const p = progress(ta, 60, 1.35);
-        const gap = lerp(1.35, 0.6, p) * plan.range(0.88, 1.12);
-        const reach = MS * Math.max(0, gap - 0.14) * lerp(0.55, 0.82, p);
+        const gap = lerp(1.5, 0.74, p) * plan.range(0.88, 1.12);
+        const reach = MS * Math.max(0, gap - 0.14) * lerp(0.5, 0.72, p);
         const minD = Math.min(reach * 0.8, lerp(45, 80, p));
         const d = plan.range(minD, Math.max(minD, reach));
         const dir = plan.chance(0.5) ? -1 : 1;
@@ -503,13 +502,13 @@ export default {
     const shots = [];
     const addShot = (kind, ta, tx, early) => {
       const p = progress(ta, 60, 1.35);
-      let T = lerp(1.3, 0.74, p) * plan.range(0.92, 1.08);
+      let T = lerp(1.4, 0.86, p) * plan.range(0.92, 1.08);
       const r = plan.next();
       const r2 = plan.next();
       let b = 0;
       if (!early && kind === 'puck') {
-        if (r < lerp(0.3, 0.5, p)) b = 1;
-        else if (ta > 24 && r > 1 - lerp(0, 0.3, p)) b = 2;
+        if (r < lerp(0.3, 0.45, p)) b = 1;
+        else if (ta > 30 && r > 1 - lerp(0, 0.2, p)) b = 2;
       }
       if (b === 2) T *= 1.18;
       // ink is lobbed fairly straight, so you can read where it lands
@@ -528,24 +527,6 @@ export default {
       shots.push({ kind, ta, tx, T, b, x0, U, tl, tw: tl - wind, vx: (U - x0) / T, vy: (MY - SY) / T });
     };
     pucks.forEach((pk, i) => addShot('puck', pk.ta, pk.tx, i < 4));
-    // ink: aimed where you just blocked, or where you're about to go
-    for (let k = 0; k + 1 < pucks.length; k++) {
-      const a = pucks[k];
-      const b = pucks[k + 1];
-      const p = progress(a.ta, 60, 1.35);
-      const q = plan.next();
-      const mode = plan.next();
-      if (a.ta < 12 || q > lerp(0.25, 0.5, p)) continue;
-      const gap = b.ta - a.ta;
-      const dist = Math.abs(b.tx - a.tx);
-      let ink = null;
-      if (mode < 0.5 && dist >= 80 && gap >= 0.62) ink = { ta: a.ta + clamp(gap * 0.45, 0.3, 0.5), tx: a.tx, ref: k };
-      else if (dist >= 90 && gap >= 0.86) ink = { ta: b.ta - clamp(gap * 0.5, 0.42, 0.6), tx: b.tx, ref: k + 1 };
-      if (!ink) continue;
-      const clash = pucks.some((o, j) => j !== ink.ref && Math.abs(o.ta - ink.ta) < 0.4 && Math.abs(o.tx - ink.tx) < 80) ||
-        shots.some((o) => o.kind === 'ink' && Math.abs(o.ta - ink.ta) < 0.8);
-      if (!clash) addShot('ink', ink.ta, ink.tx, false);
-    }
     shots.sort((s1, s2) => s1.tw - s2.tw);
 
     // ---- art ----
