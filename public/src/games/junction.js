@@ -801,13 +801,13 @@ function buildLine(rng) {
       const r1 = rng.next();
       const r2 = rng.next();
       if (!p.on[i] || (p.hz[i] && p.hz[i].type === 'buffers')) continue;
-      const pj = tp < 2.4 ? 0 : p.live[i] ? lerp(0.5, 0.8, P) : 0.3;
+      const pj = tp < 3.5 ? 0 : p.live[i] ? lerp(0.5, 0.8, P) : 0.3;
       let ex = [i];
       if (r1 < pj) {
         if (i === 0) ex = [0, 1];
         else if (i === 2) ex = [1, 2];
         else ex = r2 < 0.2 ? [0, 2] : r2 < 0.6 ? [0, 1] : [1, 2];
-      } else if (tp >= 2.4 && r1 < pj + 0.07) {
+      } else if (tp >= 3.5 && r1 < pj + 0.07) {
         ex = i === 1 ? [r2 < 0.5 ? 0 : 2] : [1];
       }
       row.exits[i] = ex;
@@ -870,7 +870,7 @@ function buildLine(rng) {
     const hc = rng.next();
     const hd = rng.next();
     const rex = row.exits[ref];
-    if (tp >= 3 && rex.length === 2 && fDraw < lerp(0.5, 0.88, P)) {
+    if (tp >= 5.5 && rex.length === 2 && fDraw < lerp(0.5, 0.88, P)) {
       const safeSide = sDraw < lerp(0.6, 0.75, P) ? -lastSafe : lastSafe;
       const j = safeSide < 0 ? rex[1] : rex[0];
       if (fits(j)) {
@@ -885,7 +885,7 @@ function buildLine(rng) {
       const b = rng.next();
       const c = rng.next();
       const dpos = rng.next();
-      if (tp < 3 || !row.on[j] || row.hz[j] || count >= maxHz) continue;
+      if (tp < 5.5 || !row.on[j] || row.hz[j] || count >= maxHz) continue;
       const ph = lerp(0.35, 0.65, P) * (row.reach[j] ? 1 : 0.35);
       if (a >= ph || !fits(j)) continue;
       place(j, b, c, dpos);
