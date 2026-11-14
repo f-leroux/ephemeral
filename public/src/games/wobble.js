@@ -470,14 +470,14 @@ export default {
     // ---- the whole show, planned up front ----
     const walls = [];
     {
-      let ta = 3.4;
+      let ta = 4;
       let tx = CX;
-      let prevGap = 3.4;
+      let prevGap = 4;
       let prev = '';
       let run = 0;
       let n = 0;
       while (ta < 63) {
-        const p = progress(ta, 60, 1.3);
+        const p = progress(ta, 60, 1.8);
         // fixed draws per wall, whatever happens
         const rType = plan.next();
         const rDist = plan.next();
@@ -493,7 +493,7 @@ export default {
 
         let type;
         if (n === 0) type = 'door';
-        else if (ta < 9) type = prev === 'door' ? 'slot' : 'door';
+        else if (ta < 13) type = prev === 'door' ? 'slot' : 'door';
         else {
           const win = ta > 22 ? 0.2 : 0;
           type = rType < win ? 'window' : rType < win + (1 - win) / 2 ? 'door' : 'slot';
@@ -504,9 +504,9 @@ export default {
 
         const dims = (ty) =>
           ty === 'door'
-            ? { w: lerp(64, 52, p), h: DOOR_H }
+            ? { w: lerp(72, 52, p), h: DOOR_H }
             : ty === 'slot'
-              ? { w: lerp(170, 118, p), h: lerp(40, 31.5, p) }
+              ? { w: lerp(184, 118, p), h: lerp(42, 31.5, p) }
               : { w: lerp(92, 80, p), h: lerp(50, 45, p) };
         const main = { type, ...dims(type) };
         const lim = (hw) => [Math.max(hw + 8, PMIN + 6), Math.min(W - hw - 8, PMAX - 6)];
@@ -558,7 +558,7 @@ export default {
           }
         }
 
-        const approach = lerp(2.6, 1.5, p);
+        const approach = lerp(3.3, 1.5, p);
         walls.push({
           ta,
           speed: D0 / approach,
@@ -567,7 +567,7 @@ export default {
           state: 'coming',
         });
         tx = nx;
-        prevGap = lerp(2.3, 0.98, p) * (0.9 + 0.2 * rGap);
+        prevGap = lerp(3, 0.98, p) * (0.9 + 0.2 * rGap);
         ta += prevGap;
         n++;
       }
