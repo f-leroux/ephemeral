@@ -30,11 +30,12 @@ const GRAV = 1800;
 const CARRY = 0.75; // how much of the pot's sideways speed the falling tea keeps
 const POT_SIZE = 100;
 
+// glasses are drawn big so the tea level reads clearly on a phone
 const TYPES = {
-  small: { w: 24, h: 38, taper: 0.8, cap: 0.6, line: 0.55 },
-  glass: { w: 30, h: 50, taper: 0.76, cap: 0.9, line: 0.6 },
-  tall: { w: 30, h: 70, taper: 0.8, cap: 1.3, line: 0.62 },
-  bowl: { w: 58, h: 32, taper: 0.58, cap: 1.4, line: 0.55 },
+  small: { w: 34, h: 52, taper: 0.8, cap: 0.7, line: 0.55 },
+  glass: { w: 42, h: 70, taper: 0.76, cap: 1.05, line: 0.6 },
+  tall: { w: 42, h: 96, taper: 0.8, cap: 1.5, line: 0.62 },
+  bowl: { w: 78, h: 44, taper: 0.58, cap: 1.65, line: 0.55 },
 };
 const HUES = [
   { band: 'rgba(200,30,60,0.62)', deep: '#8a1030' }, // ruby
@@ -45,7 +46,7 @@ const HUES = [
 
 // gentle start: a slow belt, a thin trickle from the pot (so each glass takes longer to
 // overflow) and lower gold lines, all tightening over the minute
-const beltSpeed = (t) => lerp(32, 90, progress(t, 60, 1.7));
+const beltSpeed = (t) => lerp(32, 108, progress(t, 60, 1.7));
 const flowRate = (t) => FLOW * lerp(0.55, 1, progress(t, 60, 1.5));
 const lineScale = (t) => lerp(0.72, 1, progress(t, 40, 1.3));
 const demandRate = (t) => lerp(0.26, 0.64, progress(t, 60, 1.5)); // share of the pour the glasses need
@@ -760,7 +761,7 @@ export default {
 
     const fx = createParticles();
     const sparkle = createParticles();
-    const pot = createMover({ x: W * 0.68, minX: 18, maxX: W - 18, speed: 300, accel: 14 });
+    const pot = createMover({ x: W * 0.68, minX: 18, maxX: W - 18, speed: 330, accel: 14 });
     const stream = []; // parcels of tea in the air, oldest first
     const cups = [];
     const puddles = [];
@@ -814,6 +815,8 @@ export default {
         drip: 0,
         lift: 0,
         flash: 0,
+        ok: false, // cosmetic: reached its line
+        okT: 9,
       };
       cups.push(cup);
       spawned++;
@@ -895,6 +898,14 @@ export default {
       for (const c of cups) {
         c.pour = Math.max(0, c.pour - dt);
         c.flash = Math.max(0, c.flash - dt);
+        // "filled enough": pop a tick over the glass the moment it reaches its line
+        const ok = c.fill >= c.cap * c.line;
+        if (ok && !c.ok && c.state === 'open') {
+          c.okT = 0;
+          sparkle.burst(c.x, BELT_Y - c.h - 18, { count: 10, speed: 90, life: 0.5, size: 2.6, gravity: 80, colors: ['#7ef0a8', '#c8ffd8', '#ffffff'] });
+        }
+        c.ok = ok;
+        c.okT += dt;
         if (c.fill > c.cap * 0.3 && Math.random() < dt * 1.2) steam.push({ x: c.x + (Math.random() - 0.5) * c.w * 0.5, y: BELT_Y - c.h, vx: (Math.random() - 0.5) * 6, life: 0, max: 1.6 });
       }
       for (let i = steam.length - 1; i >= 0; i--) {
@@ -1018,6 +1029,21 @@ export default {
           const wb = c.w * c.taper - 5;
           const wt = c.w - 5;
           const lv = clamp(c.fill / c.cap, 0, 1);
+          // the target zone: from the gold line up to where it gets dangerously full
+          if (c.state === 'open') {
+            const z0 = c.line;
+            const z1 = 0.86;
+            const w0 = lerp(wb, wt, z0);
+            const w1 = lerp(wb, wt, z1);
+            g.fillStyle = c.ok ? 'rgba(110,240,160,0.3)' : 'rgba(255,215,90,0.16)';
+            g.beginPath();
+            g.moveTo(c.x - w0 / 2, yb - z0 * ih);
+            g.lineTo(c.x + w0 / 2, yb - z0 * ih);
+            g.lineTo(c.x + w1 / 2, yb - z1 * ih);
+            g.lineTo(c.x - w1 / 2, yb - z1 * ih);
+            g.closePath();
+            g.fill();
+          }
           if (lv > 0.005) {
             const wob = c.pour > 0 ? Math.sin(clock * 40 + c.x) * 1.2 : 0;
             const yl = yb - lv * ih;
@@ -1065,8 +1091,8 @@ export default {
           if (urgent || (killer === c && deathKind === 'short')) col = pulse > 0.5 ? '#ff4050' : '#ffd0d0';
           if (c.state === 'open' || killer === c) {
             g.strokeStyle = col;
-            g.lineWidth = 1.6;
-            g.setLineDash([3, 2]);
+            g.lineWidth = reached ? 2.4 : 1.8;
+            g.setLineDash(reached ? [] : [4, 2]);
             g.beginPath();
             g.moveTo(c.x - wLine / 2 + 1, yLine);
             g.lineTo(c.x + wLine / 2 - 1, yLine);
@@ -1076,9 +1102,9 @@ export default {
             for (const s of [-1, 1]) {
               const ex = c.x + s * (wLine / 2 + 1);
               g.beginPath();
-              g.moveTo(ex + s * 4, yLine - 3);
+              g.moveTo(ex + s * 5, yLine - 4);
               g.lineTo(ex, yLine);
-              g.lineTo(ex + s * 4, yLine + 3);
+              g.lineTo(ex + s * 5, yLine + 4);
               g.closePath();
               g.fill();
             }
@@ -1093,6 +1119,32 @@ export default {
             g.globalCompositeOperation = 'lighter';
             drawSprite(g, glowGold, c.x, yLine, { size: c.w + 18, alpha: 0.35 });
             g.globalCompositeOperation = 'source-over';
+          }
+          // filled enough: a green tick badge over the glass
+          if (c.ok && c.state === 'open' && !this.dead) {
+            const pop = c.okT < 0.25 ? 1 + 0.5 * Math.sin((c.okT / 0.25) * Math.PI) : 1;
+            const r = 9 * pop;
+            const yy = BELT_Y - c.h - 16;
+            g.globalCompositeOperation = 'lighter';
+            drawSprite(g, glowGold, c.x, yLine, { size: c.w + 22, alpha: 0.3 });
+            g.globalCompositeOperation = 'source-over';
+            g.fillStyle = '#1d9a55';
+            g.beginPath();
+            g.arc(c.x, yy, r + 1.5, 0, TAU);
+            g.fill();
+            g.fillStyle = '#4fdc88';
+            g.beginPath();
+            g.arc(c.x, yy, r, 0, TAU);
+            g.fill();
+            g.strokeStyle = '#ffffff';
+            g.lineWidth = 2.6 * pop;
+            g.lineCap = 'round';
+            g.lineJoin = 'round';
+            g.beginPath();
+            g.moveTo(c.x - r * 0.45, yy + r * 0.02);
+            g.lineTo(c.x - r * 0.1, yy + r * 0.38);
+            g.lineTo(c.x + r * 0.5, yy - r * 0.35);
+            g.stroke();
           }
           if (urgent) {
             const yy = BELT_Y - c.h - 16 - 3 * pulse;
