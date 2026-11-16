@@ -6,7 +6,7 @@
 // for a tiny glass, a long pour for a tall one or a bowl, and whatever lands between glasses
 // is wasted on the belt. The tea falls from a height, so it keeps some of the pot's swing and
 // lands a moment after it leaves the spout: stop sharply and the stream whips on past.
-// From 18s some glasses are cracked and leak, so they need topping up just before they're
+// From 26s some glasses are cracked and leak, so they need topping up just before they're
 // served. The belt speeds up and the glasses come thicker and in rushes.
 
 import {
@@ -25,7 +25,7 @@ const TAU = Math.PI * 2;
 const BELT_Y = 560; // where the glasses stand
 const SPOUT_Y = 420; // the spout tip
 const SERVE_X = 324; // a glass is judged when its centre reaches this
-const FLOW = 1; // tea per second (a glass's capacity is in seconds of pouring)
+const FLOW = 1; // tea per second at full flow (a glass's capacity is in seconds of full pouring)
 const GRAV = 1800;
 const CARRY = 0.75; // how much of the pot's sideways speed the falling tea keeps
 const POT_SIZE = 100;
@@ -43,8 +43,12 @@ const HUES = [
   { band: 'rgba(240,160,30,0.55)', deep: '#8a5208' }, // saffron
 ];
 
-const beltSpeed = (t) => lerp(48, 90, progress(t, 60, 1.25));
-const demandRate = (t) => lerp(0.34, 0.64, progress(t, 60, 1.15));
+// gentle start: a slow belt, a thin trickle from the pot (so each glass takes longer to
+// overflow) and lower gold lines, all tightening over the minute
+const beltSpeed = (t) => lerp(32, 90, progress(t, 60, 1.7));
+const flowRate = (t) => FLOW * lerp(0.55, 1, progress(t, 60, 1.5));
+const lineScale = (t) => lerp(0.72, 1, progress(t, 40, 1.3));
+const demandRate = (t) => lerp(0.26, 0.64, progress(t, 60, 1.5)); // share of the pour the glasses need
 
 // ---------- art ----------
 
@@ -777,7 +781,7 @@ export default {
       const r2 = plan.next();
       const r3 = plan.next();
       const r4 = plan.next();
-      const opts = [['glass', 3], ['tall', t > 3 ? 2 : 0], ['small', t > 8 ? lerp(1.2, 2.2, progress(t)) : 0], ['bowl', t > 12 ? 1 : 0]];
+      const opts = [['glass', 3], ['tall', t > 5 ? 2 : 0], ['small', t > 16 ? lerp(1.2, 2.2, progress(t)) : 0], ['bowl', t > 20 ? 1 : 0]];
       let tot = opts.reduce((s, o) => s + o[1], 0) * r1;
       let type = 'glass';
       for (const [k, wgt] of opts) {
@@ -787,7 +791,7 @@ export default {
           break;
         }
       }
-      const leaky = t > 18 && (type === 'glass' || type === 'tall') && r2 < lerp(0.2, 0.35, progress(t));
+      const leaky = t > 26 && (type === 'glass' || type === 'tall') && r2 < lerp(0.2, 0.35, progress(t));
       return { type, leaky, hue: Math.floor(art.next() * HUES.length), r3, r4 };
     };
 
@@ -801,7 +805,7 @@ export default {
         h: T.h,
         taper: T.taper,
         cap: T.cap,
-        line: T.line,
+        line: T.line * (first ? 0.7 : lineScale(t)),
         fill: 0,
         leak: spec.leaky ? 0.06 : 0,
         hue: spec.hue,
@@ -818,13 +822,13 @@ export default {
       const nextW = TYPES[pending.type].w;
       const minGap = (cup.w / 2 + nextW / 2 + 12) / beltV;
       let jit = lerp(0.6, 1.45, spec.r3);
-      if (t > 10 && spec.r4 < lerp(0.15, 0.35, progress(t))) jit = 0.3; // a rush: the next one follows close behind
-      nextSpawn = t + Math.max(minGap, (need / demandRate(t)) * jit);
+      if (t > 20 && spec.r4 < lerp(0.15, 0.35, progress(t))) jit = 0.3; // a rush: the next one follows close behind
+      nextSpawn = t + Math.max(minGap, (need / (demandRate(t) * flowRate(t))) * jit);
     };
 
     // the first glass is already on the belt, the second comes out of the kitchen
     spawn(0, 60, true);
-    nextSpawn = 1.2;
+    nextSpawn = 2.5;
 
     const addPuddle = (x) => {
       for (const p of puddles) {
@@ -915,7 +919,7 @@ export default {
 
         // the pot moves, and pours, always
         pot.update(dt, dir);
-        stream.push({ x: pot.x, y: SPOUT_Y, vx: pot.vx * CARRY, vy: 160, v: FLOW * dt });
+        stream.push({ x: pot.x, y: SPOUT_Y, vx: pot.vx * CARRY, vy: 160, v: flowRate(t) * dt });
         updateAir(dt, this);
         if (this.dead) return;
 
