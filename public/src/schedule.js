@@ -1,7 +1,7 @@
 // Which game runs on which day. The daily agent adds a module in ./games/ and a line here.
 // Days without an entry fall back to rotating through GAMES.
 
-export const GAMES = ['asteroids', 'quiz', 'heatwave', 'tightrope', 'fireflies', 'kite', 'twins', 'storm', 'sealshow', 'amoeba', 'sheepdog', 'lilyleap', 'seam', 'marble', 'ducklings', 'catsdogs', 'pancakes', 'toys', 'sidewinder', 'highsteel', 'spire', 'timber', 'upwind', 'pinball', 'crab', 'cart', 'balloon', 'polar', 'soup', 'tubemail', 'ninja', 'saloon', 'sumobots', 'paradise', 'halfpipe', 'champagne', 'graveyard', 'crates', 'wetpaint', 'walkies', 'kingwalk', 'rooftop', 'whirlpool', 'hose', 'sheepcount', 'snowball', 'warren', 'orbit', 'canal', 'hotrocks', 'octohockey', 'junction', 'wobble', 'soap', 'pour', 'hickory', 'sushi', 'temple', 'cookies'];
+export const GAMES = ['asteroids', 'quiz', 'heatwave', 'tightrope', 'fireflies', 'kite', 'twins', 'storm', 'sealshow', 'amoeba', 'sheepdog', 'lilyleap', 'seam', 'marble', 'ducklings', 'catsdogs', 'pancakes', 'toys', 'sidewinder', 'highsteel', 'spire', 'timber', 'upwind', 'pinball', 'crab', 'cart', 'balloon', 'polar', 'soup', 'tubemail', 'ninja', 'saloon', 'sumobots', 'paradise', 'halfpipe', 'champagne', 'graveyard', 'crates', 'wetpaint', 'walkies', 'kingwalk', 'rooftop', 'whirlpool', 'hose', 'sheepcount', 'snowball', 'warren', 'orbit', 'canal', 'hotrocks', 'octohockey', 'junction', 'wobble', 'soap', 'pour', 'hickory', 'sushi', 'temple', 'cookies', 'shelflife'];
 
 export const SCHEDULE = {
   '2026-09-25': 'asteroids',
@@ -63,6 +63,7 @@ export const SCHEDULE = {
   '2026-11-20': 'sushi',
   '2026-11-21': 'temple',
   '2026-11-22': 'cookies',
+  '2026-11-23': 'shelflife',
 };
 
 export function gameIdFor(day, dayNum) {
