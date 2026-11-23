@@ -26,7 +26,7 @@ To test on a phone on the same Wi-Fi, open `http://<your-computer-ip>:5173/?dev`
 
 ## Deployment
 
-- **Game:** https://ephemeralgame.com, on GitHub Pages (DNS on Cloudflare, records set to DNS only). Every push to `main`, and a daily run at 08:00 UTC, checks every game (`scripts/check-game.mjs`) and builds the site with `scripts/build-site.mjs`:
+- **Game:** https://ephemeralgame.com, on GitHub Pages (DNS on Cloudflare, records set to DNS only). Every push to `main`, and a daily run scheduled at 00:23 UTC (GitHub starts it hours late), checks every game (`scripts/check-game.mjs`) and builds the site with `scripts/build-site.mjs`:
   - the **public copy** only includes games up to tomorrow (UTC) and ignores `?preview` / `?dev`, so nobody can play upcoming games early;
   - the **private preview** (everything, `?preview` and `?dev` enabled) sits at `https://ephemeralgame.com/<PREVIEW_PATH>/`, an unlisted address stored in the `PREVIEW_PATH` repo secret;
   - every local import gets `?v=<version>`, because Pages lets browsers cache files for 10 minutes.

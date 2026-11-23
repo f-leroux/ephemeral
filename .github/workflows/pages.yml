@@ -3,9 +3,12 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
-  # daily: publishes tomorrow's game before the earliest time zone (UTC+14, at 10:00 UTC) reaches it
+  # daily: publishes tomorrow's game before the earliest time zone (UTC+14, at 10:00 UTC) reaches it.
+  # Scheduled just after midnight UTC, when tomorrow's game becomes publishable, because GitHub
+  # starts scheduled runs hours late (4 to 10 hours for this repo), and away from the top of the
+  # hour, which is the busiest time.
   schedule:
-    - cron: '0 8 * * *'
+    - cron: '23 0 * * *'
   workflow_dispatch:
 
 permissions:
@@ -18,11 +21,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -41,5 +41,16 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+
+  # A separate job on purpose: deploy-pages looks the uploaded site up by name, and when it ran
+  # in the same job, a fraction of a second after the upload, GitHub's artifact list sometimes
+  # didn't include it yet and the deploy failed (actions/deploy-pages#451).
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v4
